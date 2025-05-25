@@ -47,8 +47,9 @@ export function GradeManagement() {
   const [isEditing, setIsEditing] = useState(false)
   const [selectedStudentId, setSelectedStudentId] = useState<string>('')
   const [filteredScores, setFilteredScores] = useState<RawScore[]>([])
-    const [activeTab, setActiveTab] = useState('management');
+  const [activeTab, setActiveTab] = useState('management');
   const [rankings, setRankings] = useState<StudentScore[]>([]);
+
   // Fetch all scores
   useEffect(() => {
     const fetchScores = async () => {
@@ -71,15 +72,12 @@ export function GradeManagement() {
 
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Unknown error')
+        console.error('Fetch error:', err)
       } finally {
         setLoading(false)
       }
     }
     fetchScores()
-       
-       
-    
-    
   }, [])
 
   // Filter when student selection changes
@@ -96,30 +94,44 @@ export function GradeManagement() {
     e.preventDefault()
     try {
       const action = isEditing ? 'update' : 'create'
-      const payload = isEditing
-        ? {
-            action,
-            id: formData.id!,
-            score: formData.score,
-            completed: formData.completed,
-            score_type: formData.score_type,
-          }
-        : { action, ...formData }
+      
+      // 确保所有必要的字段都包含在payload中
+      const payload = {
+        action,
+        ...(isEditing && { id: formData.id }),
+        student_id: formData.student_id,
+        task_number: formData.task_number,
+        score_type: formData.score_type,
+        score: formData.score,
+        completed: formData.completed,
+      }
+
+      console.log('Submitting payload:', payload) // 调试日志
 
       const res = await fetch('/api/teacher/task-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       })
-      if (!res.ok) throw new Error(`Failed to ${action} score`)
+      
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Failed to ${action} score: ${errorText}`)
+      }
 
       // Refresh list
       const refresh = await fetch('/api/student/taskscores')
-      const data: RawScore[] = await refresh.json()
-      setScores(data)
+      if (refresh.ok) {
+        const data: RawScore[] = await refresh.json()
+        setScores(data)
+      }
+      
       resetForm()
+      setError(null) // 清除之前的错误
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setError(errorMsg)
+      console.error('Submit error:', err)
     }
   }
 
@@ -127,24 +139,38 @@ export function GradeManagement() {
   const handleDelete = async (id: number) => {
     if (!confirm('确定要删除这条评分记录吗？')) return
     try {
+      console.log('Deleting score with id:', id) // 调试日志
+      
       const res = await fetch('/api/teacher/task-scores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', id }),
       })
-      if (!res.ok) throw new Error('Failed to delete score')
+      
+      if (!res.ok) {
+        const errorText = await res.text()
+        throw new Error(`Failed to delete score: ${errorText}`)
+      }
 
       // Refresh list
       const refresh = await fetch('/api/student/taskscores')
-      const data: RawScore[] = await refresh.json()
-      setScores(data)
+      if (refresh.ok) {
+        const data: RawScore[] = await refresh.json()
+        setScores(data)
+      }
+      
+      setError(null) // 清除之前的错误
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+      setError(errorMsg)
+      console.error('Delete error:', err)
     }
   }
 
   // Populate form for editing
   const handleEdit = (score: RawScore) => {
+    console.log('Editing score:', score) // 调试日志
+    
     setFormData({
       id: score.id,
       student_id: score.student_id,
@@ -207,247 +233,242 @@ export function GradeManagement() {
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-6">成绩管理系统</h1>
-           <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="my-scores">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="management">成绩管理</TabsTrigger>
-                <TabsTrigger value="rankings">成绩排名</TabsTrigger>
-              </TabsList>
-       <TabsContent value="management">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>成绩管理</CardTitle>
-                  </CardHeader>
-                  <CardContent>      
-      {/* 学员筛选 */}
-      <div className="mb-6">
-        <label className="block mb-2 font-medium">选择学员：</label>
-        <select
-          className="w-full p-2 border rounded"
-          value={selectedStudentId}
-          onChange={e => setSelectedStudentId(e.target.value)}
-        >
-          <option value="">所有学员</option>
-          {uniqueStudentIds.map(id => (
-            <option key={id} value={id}>
-              {scores.find(s => s.student_id === id)?.student_name ||
-                id}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* 学员统计 */}
-      {selectedStudentId && (
-        <div className="mb-6 p-4 bg-gray-100 rounded">
-          {studentSummaries
-            .filter(x => x.student_id === selectedStudentId)
-            .map(summary => (
-              <div key={summary.student_id}>
-                <h3 className="font-bold">
-                  {summary.student_name}
-                </h3>
-                <p>总分: {summary.total_score}</p>
-                <p>平均分: {summary.avg_score}</p>
-                <p>记录数: {summary.records_count}</p>
+      <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="management">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="management">成绩管理</TabsTrigger>
+          <TabsTrigger value="rankings">成绩排名</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="management">
+          <Card>
+            <CardHeader>
+              <CardTitle>成绩管理</CardTitle>
+            </CardHeader>
+            <CardContent>      
+              {/* 学员筛选 */}
+              <div className="mb-6">
+                <label className="block mb-2 font-medium">选择学员：</label>
+                <select
+                  className="w-full p-2 border rounded"
+                  value={selectedStudentId}
+                  onChange={e => setSelectedStudentId(e.target.value)}
+                >
+                  <option value="">所有学员</option>
+                  {uniqueStudentIds.map(id => (
+                    <option key={id} value={id}>
+                      {scores.find(s => s.student_id === id)?.student_name || id}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
-        </div>
-      )}
 
-      {/* 成绩列表 */}
-      <div className="mb-8 overflow-x-auto">
-        <h2 className="text-xl font-semibold mb-3">成绩列表</h2>
-        <table className="min-w-full bg-white border">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">学号</th>
-              <th className="p-2 border">姓名</th>
-              <th className="p-2 border">任务编号</th>
-              <th className="p-2 border">评分类型</th>
-              <th className="p-2 border">分数</th>
-              <th className="p-2 border">操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredScores.length > 0 ? (
-              filteredScores.map(score => (
-                <tr key={score.id} className="hover:bg-gray-50">
-                  <td className="p-2 border">{score.student_id}</td>
-                  <td className="p-2 border">
-                    {score.student_name || '未知'}
-                  </td>
-                  <td className="p-2 border">{score.task_number}</td>
-                  <td className="p-2 border">
-                    {score.score_type === 'practice'
-                      ? '实践题'
-                      : '选择题'}
-                  </td>
-                  <td className="p-2 border">{score.score}</td>
-                  <td className="p-2 border">
+              {/* 学员统计 */}
+              {selectedStudentId && (
+                <div className="mb-6 p-4 bg-gray-100 rounded">
+                  {studentSummaries
+                    .filter(x => x.student_id === selectedStudentId)
+                    .map(summary => (
+                      <div key={summary.student_id}>
+                        <h3 className="font-bold">{summary.student_name}</h3>
+                        <p>总分: {summary.total_score}</p>
+                        <p>平均分: {summary.avg_score}</p>
+                        <p>记录数: {summary.records_count}</p>
+                      </div>
+                    ))}
+                </div>
+              )}
+
+              {/* 成绩列表 */}
+              <div className="mb-8 overflow-x-auto">
+                <h2 className="text-xl font-semibold mb-3">成绩列表</h2>
+                <table className="min-w-full bg-white border">
+                  <thead className="bg-gray-100">
+                    <tr>
+                      <th className="p-2 border">ID</th>
+                      <th className="p-2 border">学号</th>
+                      <th className="p-2 border">姓名</th>
+                      <th className="p-2 border">任务编号</th>
+                      <th className="p-2 border">评分类型</th>
+                      <th className="p-2 border">分数</th>
+                      <th className="p-2 border">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredScores.length > 0 ? (
+                      filteredScores.map(score => (
+                        <tr key={score.id} className="hover:bg-gray-50">
+                          <td className="p-2 border">{score.id}</td>
+                          <td className="p-2 border">{score.student_id}</td>
+                          <td className="p-2 border">{score.student_name || '未知'}</td>
+                          <td className="p-2 border">{score.task_number}</td>
+                          <td className="p-2 border">
+                            {score.score_type === 'practice' ? '实践题' : '选择题'}
+                          </td>
+                          <td className="p-2 border">{score.score}</td>
+                          <td className="p-2 border">
+                            <button
+                              onClick={() => handleEdit(score)}
+                              className="bg-blue-500 text-white px-2 py-1 rounded mr-2"
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={() => handleDelete(score.id)}
+                              className="bg-red-500 text-white px-2 py-1 rounded"
+                            >
+                              删除
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="p-4 text-center">暂无数据</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* 添加 / 编辑 表单 */}
+              <div className="bg-gray-100 p-4 rounded">
+                <h2 className="text-xl font-semibold mb-3">
+                  {isEditing ? '编辑评分记录' : '添加新评分'}
+                </h2>
+                {isEditing && formData.id && (
+                  <div className="mb-4 p-2 bg-yellow-100 rounded">
+                    <strong>正在编辑记录 ID: {formData.id}</strong>
+                  </div>
+                )}
+                <form onSubmit={handleSubmit}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block mb-1">学员ID:</label>
+                      <input
+                        type="text"
+                        name="student_id"
+                        value={formData.student_id}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded"
+                        required
+                        readOnly={isEditing}
+                        style={isEditing ? { backgroundColor: '#f5f5f5' } : {}}
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1">任务编号:</label>
+                      <input
+                        type="number"
+                        name="task_number"
+                        value={formData.task_number}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded"
+                        required
+                        min={1}
+                        readOnly={isEditing}
+                        style={isEditing ? { backgroundColor: '#f5f5f5' } : {}}
+                      />
+                    </div>
+                    <div>
+                      <label className="block mb-1">评分类型:</label>
+                      <select
+                        name="score_type"
+                        value={formData.score_type}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded"
+                      >
+                        <option value="practice">实践题</option>
+                        <option value="choice">选择题</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block mb-1">分数:</label>
+                      <input
+                        type="number"
+                        name="score"
+                        value={formData.score}
+                        onChange={handleChange}
+                        className="w-full p-2 border rounded"
+                        required
+                        min={0}
+                      />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          name="completed"
+                          checked={formData.completed}
+                          onChange={handleChange}
+                          className="mr-2"
+                        />
+                        已完成
+                      </label>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex space-x-2">
                     <button
-                      onClick={() => handleEdit(score)}
-                      className="bg-blue-500 text-white px-2 py-1 rounded mr-2"
+                      type="submit"
+                      className="bg-green-500 text-white px-4 py-2 rounded"
                     >
-                      编辑
+                      {isEditing ? '更新' : '添加'}
                     </button>
-                    <button
-                      onClick={() => handleDelete(score.id)}
-                      className="bg-red-500 text-white px-2 py-1 rounded"
-                    >
-                      删除
-                    </button>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={6} className="p-4 text-center">
-                  暂无数据
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 添加 / 编辑 表单 */}
-      <div className="bg-gray-100 p-4 rounded">
-        <h2 className="text-xl font-semibold mb-3">
-          {isEditing ? '编辑评分记录' : '添加新评分'}
-        </h2>
-        <form onSubmit={handleSubmit}>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block mb-1">学员ID:</label>
-              <input
-                type="text"
-                name="student_id"
-                value={formData.student_id}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-                required
-                disabled={isEditing}
-              />
-            </div>
-            <div>
-              <label className="block mb-1">任务编号:</label>
-              <input
-                type="number"
-                name="task_number"
-                value={formData.task_number}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-                required
-                min={1}
-                disabled={isEditing}
-              />
-            </div>
-            <div>
-              <label className="block mb-1">评分类型:</label>
-              <select
-                name="score_type"
-                value={formData.score_type}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-              >
-                <option value="practice">实践题</option>
-                <option value="choice">选择题</option>
-              </select>
-            </div>
-            <div>
-              <label className="block mb-1">分数:</label>
-              <input
-                type="number"
-                name="score"
-                value={formData.score}
-                onChange={handleChange}
-                className="w-full p-2 border rounded"
-                required
-                min={0}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="completed"
-                  checked={formData.completed}
-                  onChange={handleChange}
-                  className="mr-2"
-                />
-                已完成
-              </label>
-            </div>
-          </div>
-          <div className="mt-4 flex space-x-2">
-            <button
-              type="submit"
-              className="bg-green-500 text-white px-4 py-2 rounded"
-            >
-              {isEditing ? '更新' : '添加'}
-            </button>
-            {isEditing && (
-              <button
-                type="button"
-                onClick={resetForm}
-                className="bg-gray-500 text-white px-4 py-2 rounded"
-              >
-                取消
-              </button>
-            )}
-          </div>
-        </form>
-      </div>
-          </CardContent>
-                </Card>
-              </TabsContent>
-              <TabsContent value="rankings">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle>成绩排名</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <div className="border rounded-lg">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>排名</TableHead>
-                                    <TableHead>学号</TableHead>
-                                    <TableHead>姓名</TableHead>
-                                    <TableHead>总分数</TableHead>
-                                    <TableHead></TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {rankings.length > 0 ? (
-                                    rankings.map((student, index) => (
-                                      <TableRow 
-                                        key={student.student_id}
-                                      
-                                      >
-                                        <TableCell>{index + 1}</TableCell>
-                                        <TableCell>{student.student_id}</TableCell>
-                                        <TableCell>{student.student_name}</TableCell>
-                                        <TableCell>{student.total_score}</TableCell>
-                                     
-                                      </TableRow>
-                                    ))
-                                  ) : (
-                                    <TableRow>
-                                      <TableCell colSpan={5} className="text-center py-4">
-                                        暂无排名数据
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      </TabsContent>
-
-
-       </Tabs>
-        </div>
+                    {isEditing && (
+                      <button
+                        type="button"
+                        onClick={resetForm}
+                        className="bg-gray-500 text-white px-4 py-2 rounded"
+                      >
+                        取消
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="rankings">
+          <Card>
+            <CardHeader>
+              <CardTitle>成绩排名</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>排名</TableHead>
+                      <TableHead>学号</TableHead>
+                      <TableHead>姓名</TableHead>
+                      <TableHead>总分数</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rankings.length > 0 ? (
+                      rankings.map((student, index) => (
+                        <TableRow key={student.student_id}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>{student.student_id}</TableCell>
+                          <TableCell>{student.student_name}</TableCell>
+                          <TableCell>{student.total_score}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-4">
+                          暂无排名数据
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

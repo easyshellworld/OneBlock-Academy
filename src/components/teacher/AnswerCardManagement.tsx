@@ -153,6 +153,21 @@ export function AnswerCardManagement() {
     return Math.max(...availableTasks) + 1;
   }
 
+  // Data validation function
+  function validateQuestionData(question: ChoiceQuestion): boolean {
+    if (!question.id) {
+      console.error('Question missing ID:', question);
+      return false;
+    }
+    
+    if (!question.task_number || !question.question_number) {
+      console.error('Question missing task_number or question_number:', question);
+      return false;
+    }
+    
+    return true;
+  }
+
   // Open dialog to add new task
   function openAddTaskDialog() {
     setNewTaskNumber(getNextTaskNumber());
@@ -242,14 +257,21 @@ export function AnswerCardManagement() {
     setAddDialogOpen(true);
   }
 
-  // Open edit dialog
+  // Open edit dialog - 修复版本
   function openEditDialog(question: ChoiceQuestion) {
-    setCurrentQuestionId(question.id!);
+    if (!question.id) {
+      toast.error("无法编辑", {
+        description: "题目ID缺失"
+      });
+      return;
+    }
+    
+    setCurrentQuestionId(question.id);
     setFormData({
       task_number: question.task_number,
-      question_number: question.question_number,
+      question_number: question.question_number, // 保持原有的题目编号
       question_text: question.question_text,
-      options: {...question.options},
+      options: {...question.options}, // 深拷贝防止引用问题
       correct_option: question.correct_option,
       score: question.score,
     });
@@ -294,7 +316,7 @@ export function AnswerCardManagement() {
     }
     
     let hasEmptyOption = false;
-    Object.entries(formData.options || {}).forEach(([ value]) => {
+    Object.entries(formData.options || {}).forEach(([, value]) => {
       if (!value.trim()) {
         hasEmptyOption = true;
       }
@@ -358,9 +380,24 @@ export function AnswerCardManagement() {
     }
   }
 
-  // Update question
+  // Update question - 修复版本
   async function handleUpdateQuestion() {
-    if (!validateForm() || !currentQuestionId) return;
+    if (!validateForm() || !currentQuestionId) {
+      toast.error("更新失败", {
+        description: "表单验证失败或题目ID缺失"
+      });
+      return;
+    }
+
+    // 确保更新数据的完整性
+    const updateData = {
+      task_number: formData.task_number,
+      question_number: formData.question_number, // 确保包含question_number
+      question_text: formData.question_text,
+      options: formData.options,
+      correct_option: formData.correct_option,
+      score: formData.score,
+    };
 
     setLoading(true);
     try {
@@ -370,7 +407,7 @@ export function AnswerCardManagement() {
         body: JSON.stringify({ 
           action: 'update', 
           id: currentQuestionId, 
-          updates: formData 
+          updates: updateData // 使用明确的更新数据对象
         }),
       });
       const json = await res.json();
@@ -380,7 +417,8 @@ export function AnswerCardManagement() {
           description: "题目已成功更新"
         });
         setEditDialogOpen(false);
-        fetchQuestions();
+        setCurrentQuestionId(null); // 清理状态
+        fetchQuestions(); // 重新获取数据确保一致性
       } else {
         toast.error("更新失败", {
           description: json.error || "未知错误"
@@ -395,8 +433,15 @@ export function AnswerCardManagement() {
     }
   }
 
-  // Delete question
+  // Delete question - 修复版本
   async function handleDeleteQuestion(id: number) {
+    if (!id) {
+      toast.error("删除失败", {
+        description: "题目ID缺失"
+      });
+      return;
+    }
+    
     if (!window.confirm('确定要删除这道题？此操作不可恢复。')) return;
     
     setLoading(true);
@@ -412,7 +457,7 @@ export function AnswerCardManagement() {
         toast.success("删除成功", {
           description: "题目已成功删除"
         });
-        fetchQuestions();
+        fetchQuestions(); // 重新获取数据
       } else {
         toast.error("删除失败", {
           description: json.error || "未知错误"
@@ -494,7 +539,9 @@ export function AnswerCardManagement() {
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredQuestions.map((question) => (
+              {filteredQuestions
+                .filter(question => validateQuestionData(question)) // 过滤掉无效数据
+                .map((question) => (
                 <Card key={question.id} className="overflow-hidden">
                   <CardHeader className="bg-muted/50 py-3">
                     <div className="flex justify-between items-center">

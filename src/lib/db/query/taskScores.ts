@@ -39,6 +39,7 @@ interface TaskSummary {
 }
 
 interface RawScore {
+  id:number,
   student_id: string
   student_name: string | null
   task_number: number
@@ -182,6 +183,7 @@ export function getRawScores(): RawScore[] {
     .prepare<[], RawScore>(
       `
       SELECT
+        ts.id,
         ts.student_id,
         r.student_name AS student_name,
         ts.task_number,
