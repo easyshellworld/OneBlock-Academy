@@ -65,6 +65,7 @@ cp .env.example .env.local
 # INITIAL_STUDENT_ID=1799          # 初始化学员编号
 # 生成claim的工厂合约，已部署在westend-asset-hub-eth，地址如下：
 #NEXT_PUBLIC_CLAIM_FACTORY=0x85d08E78856A6071c332D9C7a418679D6dED2265 
+#NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=  
 
 # 需要在.env环境下（非.env.local环境,供应初始化数据库）
 # ADMIN_ADDRESS=初始化管理员钱包地址  
