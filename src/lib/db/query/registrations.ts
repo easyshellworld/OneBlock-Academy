@@ -55,13 +55,13 @@ export function addRegistration(reg: Omit<Registration, 'student_id' | 'id'>): {
       university, major, city, role, languages, experience, source,
       has_web3_experience, study_time, interests, platforms,
       willing_to_hackathon, willing_to_lead, wants_private_service,
-      referrer, wallet_address, student_id, approved，created_at, updated_at
+      referrer, wallet_address, student_id, approved, created_at, updated_at
     ) VALUES (
       @student_name, @wechat_id, @phone, @email, @gender, @age_group, @education,
       @university, @major, @city, @role, @languages, @experience, @source,
       @has_web3_experience, @study_time, @interests, @platforms,
       @willing_to_hackathon, @willing_to_lead, @wants_private_service,
-      @referrer, @wallet_address, @student_id, @approved，@created_at, @updated_at
+      @referrer, @wallet_address, @student_id, @approved, @created_at, @updated_at
     )`
   );
 
