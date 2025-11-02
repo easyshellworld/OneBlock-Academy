@@ -1,5 +1,5 @@
-// ./src/lib/db/query/studentNotes.ts
-import db from '@/lib/db';
+// lib/db/query/studentNotes.ts
+import prisma from '@/lib/db'
 
 export interface StudentNote {
   id?: number;
@@ -7,66 +7,64 @@ export interface StudentNote {
   student_name: string;
   title: string;
   content_markdown: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
-// 获取所有笔记
-export function getAllStudentNotes(): StudentNote[] {
-  return db.prepare('SELECT * FROM student_notes ORDER BY created_at DESC').all() as StudentNote[];
+export async function getAllStudentNotes(): Promise<StudentNote[]> {
+  return await prisma.studentNote.findMany({
+    orderBy: { created_at: 'desc' }
+  })
 }
 
-// 获取指定学员的所有笔记
-export function getNotesByStudentId(studentId: string): StudentNote[] {
-  return db.prepare('SELECT * FROM student_notes WHERE student_id = ? ORDER BY created_at DESC').all(studentId) as StudentNote[];
+export async function getNotesByStudentId(studentId: string): Promise<StudentNote[]> {
+  return await prisma.studentNote.findMany({
+    where: { student_id: studentId },
+    orderBy: { created_at: 'desc' }
+  })
 }
 
-// 添加一条笔记
-export function addStudentNote(note: StudentNote) {
-  const stmt = db.prepare(`
-    INSERT INTO student_notes (
-      student_id, student_name, title, content_markdown, created_at, updated_at
-    ) VALUES (
-      @student_id, @student_name, @title, @content_markdown, @created_at, @updated_at
-    )
-  `);
-  const now = new Date().toISOString();
-  stmt.run({ ...note, created_at: now, updated_at: now });
+export async function addStudentNote(note: StudentNote): Promise<void> {
+  await prisma.studentNote.create({
+    data: {
+      ...note,
+      updated_at: new Date()
+    }
+  })
 }
 
-// 更新笔记（仅支持指定 student_id 的修改）
-export function updateStudentNoteById(id: number, student_id: string, fields: Partial<StudentNote>) {
-  const safeUpdates = { ...fields };
-  delete safeUpdates.id;
-  delete safeUpdates.student_id;
-  delete safeUpdates.created_at;
-
-  const keys = Object.keys(safeUpdates);
-  if (keys.length === 0) return { success: false, error: 'No fields to update' };
-
-  const setClause = keys.map(key => `${key} = ?`).join(', ');
-  const values = keys.map(key => (safeUpdates as Record<string, unknown>)[key]);
-
-  const stmt = db.prepare(`
-    UPDATE student_notes SET ${setClause}, updated_at = ? 
-    WHERE id = ? AND student_id = ?
-  `);
-  const now = new Date().toISOString();
+export async function updateStudentNoteById(id: number, student_id: string, fields: Partial<StudentNote>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(...values, now, id, student_id);
-    return { success: true, changes: result.changes };
+    const data: Partial<StudentNote> = { ...fields }
+    delete data.id
+    delete data.student_id
+    delete data.created_at
+    data.updated_at = new Date()
+
+    const result = await prisma.studentNote.updateMany({
+      where: { 
+        id,
+        student_id 
+      },
+      data
+    })
+
+    return { success: true, changes: result.count }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-// 删除笔记（仅限本人）
-export function deleteStudentNoteById(id: number, student_id: string) {
-  const stmt = db.prepare('DELETE FROM student_notes WHERE id = ? AND student_id = ?');
+export async function deleteStudentNoteById(id: number, student_id: string): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(id, student_id);
-    return { success: true, changes: result.changes };
+    const result = await prisma.studentNote.deleteMany({
+      where: { 
+        id,
+        student_id 
+      }
+    })
+    return { success: true, changes: result.count }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }

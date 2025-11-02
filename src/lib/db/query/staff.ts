@@ -1,5 +1,5 @@
-// ./src/lib/db/query/staff.ts
-import db from '@/lib/db';
+// lib/db/query/staff.ts
+import prisma from '@/lib/db'
 
 export interface Staff {
   id?: number;
@@ -9,55 +9,47 @@ export interface Staff {
   role: 'admin' | 'teacher' | 'assistant';
   wallet_address: string;
   approved?: boolean;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
-export function getAllStaff(): Staff[] {
-  return db.prepare('SELECT * FROM staff').all() as Staff[];
+export async function getAllStaff(): Promise<Staff[]> {
+  return await prisma.staff.findMany()
 }
 
-export function addStaff(staff: Omit<Staff, 'id' | 'created_at' | 'updated_at'>): void {
-  const stmt = db.prepare(`
-    INSERT INTO staff (name, wechat_id, phone, role, wallet_address, approved)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  stmt.run(
-    staff.name,
-    staff.wechat_id,
-    staff.phone,
-    staff.role,
-    staff.wallet_address,
-    staff.approved !== false ? 1 : 0 
-  );
+export async function addStaff(staff: Omit<Staff, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
+  await prisma.staff.create({
+    data: {
+      ...staff,
+      updated_at: new Date()
+    }
+  })
 }
 
-export function updateStaff(id: number, updates: Partial<Staff>) {
-  const safeUpdates = { ...updates };
-  delete safeUpdates.id;
-
-  const keys = Object.keys(safeUpdates);
-  if (keys.length === 0) return { success: false, error: 'No fields to update' };
-
-  const setClause = keys.map((key) => `${key} = ?`).join(', ');
-  const values = keys.map((key) => (safeUpdates as Record<string, unknown>)[key]);
-  const now = new Date().toISOString();
-
-  const stmt = db.prepare(`UPDATE staff SET ${setClause}, updated_at = ? WHERE id = ?`);
+export async function updateStaff(id: number, updates: Partial<Staff>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(...values, now, id);
-    return { success: true, changes: result.changes };
+    const data: Partial<Staff> = { ...updates }
+    delete data.id
+    data.updated_at = new Date()
+
+    await prisma.staff.update({
+      where: { id },
+      data
+    })
+
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-export function deleteStaff(id: number) {
-  const stmt = db.prepare('DELETE FROM staff WHERE id = ?');
+export async function deleteStaff(id: number): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(id);
-    return { success: true, changes: result.changes };
+    await prisma.staff.delete({
+      where: { id }
+    })
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }

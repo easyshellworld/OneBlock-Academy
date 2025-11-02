@@ -18,12 +18,12 @@ export async function GET(request: NextRequest) {
     const student_id = searchParams.get('student_id');
 
     // Get all questions without answers
-    const questions = getQuestionsWithoutAnswers();
+    const questions =await getQuestionsWithoutAnswers();
     
     // If a student_id is provided, get their completed tasks
     let completedTasks: number[] = [];
     if (student_id) {
-      const taskScores = getTaskScoresByStudent(student_id);
+      const taskScores =await getTaskScoresByStudent(student_id);
       completedTasks = taskScores
         .filter(score => score.score_type === 'choice' && score.completed)
         .map(score => score.task_number);
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get all questions for this task
-    const allQuestions: ChoiceQuestion[] = getAllChoiceQuestions();
+    const allQuestions: ChoiceQuestion[] =await getAllChoiceQuestions();
     const taskQuestions = allQuestions.filter(q => q.task_number === task_number);
     
     if (taskQuestions.length === 0) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if student has already completed this task
-    const studentScores = getTaskScoresByStudent(student_id);
+    const studentScores =await getTaskScoresByStudent(student_id);
     const existingScore = studentScores.find(
       score => score.task_number === task_number && score.score_type === 'choice'
     );
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate the score
-    const totalScore = calculateChoiceScore(answers);
+    const totalScore =await calculateChoiceScore(answers);
     
     // Create answer feedback data
     const incorrectQuestions = taskQuestions
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       );
     } else {
       // Create new task score record
-      createTaskScore({
+     await createTaskScore({
         student_id,
         task_number,
         score_type: 'choice',

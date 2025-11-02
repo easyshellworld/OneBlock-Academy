@@ -14,23 +14,23 @@ export async function POST(req: Request) {
     const { action, payload } = body;
 
     if (action === 'get') {
-      const data = getAllStaff();
+      const data =await getAllStaff();
       return NextResponse.json({ success: true, data });
     }
 
     if (action === 'add') {
-      addStaff(payload as Omit<Staff, 'id' | 'created_at' | 'updated_at'>);
+      await addStaff(payload as Omit<Staff, 'id' | 'created_at' | 'updated_at'>);
       return NextResponse.json({ success: true, message: 'Staff added successfully' });
     }
 
     if (action === 'update') {
       const { id, ...updates } = payload;
-      const result = updateStaff(id, updates);
+      const result =await updateStaff(id, updates);
       return NextResponse.json(result);
     }
 
     if (action === 'delete') {
-      const result = deleteStaff(payload.id);
+      const result =await deleteStaff(payload.id);
       return NextResponse.json(result);
     }
 

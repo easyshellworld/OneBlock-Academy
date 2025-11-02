@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
   try {
     if (action === 'getAll') {
-      const result = getAllStudentNotes();
+      const result =await getAllStudentNotes();
       return NextResponse.json(result);
     }
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       if (!data || !data.student_id || !data.student_name || !data.title || !data.content_markdown) {
         return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
       }
-      addStudentNote(data);
+      await addStudentNote(data);
       return NextResponse.json({ message: 'Note added successfully' });
     }
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       if (!id || !student_id) {
         return NextResponse.json({ message: 'Missing id or student_id' }, { status: 400 });
       }
-      const result = updateStudentNoteById(id, student_id, updateFields);
+      const result =await updateStudentNoteById(id, student_id, updateFields);
       return NextResponse.json(result);
     }
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       if (!id || !student_id) {
         return NextResponse.json({ message: 'Missing id or student_id' }, { status: 400 });
       }
-      const result = deleteStudentNoteById(id, student_id);
+      const result =await deleteStudentNoteById(id, student_id);
       return NextResponse.json(result);
     }
 

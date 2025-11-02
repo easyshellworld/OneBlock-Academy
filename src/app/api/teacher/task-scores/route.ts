@@ -18,26 +18,26 @@ export async function POST(req: Request) {
   const { action } = body
 
   if (action === 'create') {
-    const id = createTaskScore(body)
+    const id =await createTaskScore(body)
     return NextResponse.json({ id }, { status: 201 })
   }
 
   if (action === 'update') {
     const { id, ...updates } = body
-    updateTaskScore(id, updates)
+    await updateTaskScore(id, updates)
     return NextResponse.json({ id })
   }
 
   if (action === 'delete') {
     const { id } = body
-    deleteTaskScore(id)
+    await deleteTaskScore(id)
     return NextResponse.json({ id })
   }
 
     // ✅ 新增 summary 功能
     if (action === 'summary') {
       
-      const summary = getStudentScores()
+      const summary =await getStudentScores()
       return NextResponse.json(summary)
     }
 

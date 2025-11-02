@@ -50,3 +50,5 @@ dev.md
 ppt.md
 /ppt
 .env
+
+/src/generated/prisma

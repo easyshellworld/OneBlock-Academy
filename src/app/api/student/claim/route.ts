@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     // 查询操作，只需 student_id
     if (action === 'query') {
       // 将返回值断言为包含 has_claimed 字段的数组
-      const history = getProjectsByStudentId(student_id) as Array<{ has_claimed: boolean }>;
+      const history =await getProjectsByStudentId(student_id) as Array<{ has_claimed: boolean }>;
       const claimed = history.some((record) => record.has_claimed);
       const latest = getLatestProject();
       if (claimed) {

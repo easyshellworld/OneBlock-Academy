@@ -19,7 +19,7 @@ const handler = NextAuth({
             return null;
           }
 
-          const registertext = checkWalletAuth(credentials.address);
+          const registertext = await checkWalletAuth(credentials.address);
           if (!registertext) {
             console.error("Failed to load register");
             return null;

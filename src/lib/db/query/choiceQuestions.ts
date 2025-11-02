@@ -1,147 +1,131 @@
-import db from '@/lib/db';
+// lib/db/query/choiceQuestions.ts
+import prisma from '@/lib/db'
 
 export interface ChoiceQuestion {
   id?: number;
   task_number: number;
   question_number: number;
   question_text: string;
-  options: Record<string, string>; // A, B, C, D
+  options: Record<string, string>;
   correct_option: string;
   score: number;
   created_at?: string;
   updated_at?: string;
 }
 
-// Database error type definition
-type DbError = {
-  message: string;
-  code?: string | number;
+interface ChoiceQuestionRow {
+  id: number;
+  task_number: number;
+  question_number: number;
+  question_text: string;
+  options: string; // JSON string from database
+  correct_option: string;
+  score: number;
+  created_at: string;
+  updated_at: string;
 }
 
-// 获取全部选择题
-export function getAllChoiceQuestions(): ChoiceQuestion[] {
-  const rows = db.prepare('SELECT * FROM choice_questions ORDER BY task_number, question_number').all() as Array<{
-    id: number;
-    task_number: number;
-    question_number: number;
-    question_text: string;
-    options: string; // JSON 格式的字符串
-    correct_option: string;
-    score: number;
-    created_at: string;
-    updated_at: string;
-  }>;
+export async function getAllChoiceQuestions(): Promise<ChoiceQuestion[]> {
+  const questions = await prisma.choiceQuestion.findMany({
+    orderBy: [
+      { task_number: 'asc' },
+      { question_number: 'asc' }
+    ]
+  }) as unknown as ChoiceQuestionRow[];
 
-  return rows.map((row) => ({
-    ...row,
-    options: JSON.parse(row.options) as Record<string, string>, // 明确转换为 Record<string, string>
-  }));
-}
-
-// 获取不含答案的选择题（用于学员）
-export function getQuestionsWithoutAnswers(): Omit<ChoiceQuestion, 'correct_option'>[] {
-  const rows = db.prepare(`
-    SELECT id, task_number, question_number, question_text, options, score, created_at, updated_at 
-    FROM choice_questions 
-    ORDER BY task_number, question_number
-  `).all() as Array<{
-    id: number;
-    task_number: number;
-    question_number: number;
-    question_text: string;
-    options: string; // JSON 格式的字符串
-    score: number;
-    created_at: string;
-    updated_at: string;
-  }>;
-
-  return rows.map((row) => ({
-    ...row,
-    options: JSON.parse(row.options) as Record<string, string>, // 明确转换为 Record<string, string>
-  }));
-}
-
-// 插入选择题
-export function addChoiceQuestion(q: ChoiceQuestion) {
-  const stmt = db.prepare(`
-    INSERT INTO choice_questions (
-      task_number, question_number, question_text, options, correct_option, score, created_at, updated_at
-    ) VALUES (
-      @task_number, @question_number, @question_text, @options, @correct_option, @score, @created_at, @updated_at
-    )
-  `);
-  stmt.run({
+  return questions.map((q: ChoiceQuestionRow) => ({
     ...q,
-    options: JSON.stringify(q.options),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  });
+    options: JSON.parse(q.options) as Record<string, string>
+  }))
 }
 
-// 更新选择题
-export function updateChoiceQuestion(id: number, updates: Partial<ChoiceQuestion>) {
-  // 创建一个新对象，用于存储数据库可接受的值格式
-  const safeUpdates: Record<string, string | number> = {};
+export async function getQuestionsWithoutAnswers(): Promise<Omit<ChoiceQuestion, 'correct_option'>[]> {
+  const questions = await prisma.choiceQuestion.findMany({
+    select: {
+      id: true,
+      task_number: true,
+      question_number: true,
+      question_text: true,
+      options: true,
+      score: true,
+      created_at: true,
+      updated_at: true
+    },
+    orderBy: [
+      { task_number: 'asc' },
+      { question_number: 'asc' }
+    ]
+  }) as unknown as Omit<ChoiceQuestionRow, 'correct_option'>[];
 
-  // 对每个字段单独处理
-  Object.entries(updates).forEach(([key, value]) => {
-    if (key === 'id') return; // 跳过id字段
-    
-    if (key === 'options' && typeof value === 'object') {
-      safeUpdates[key] = JSON.stringify(value);
-    } else if (value !== undefined) {
-      // 只处理非undefined的值，并确保类型正确
-      safeUpdates[key] = value as string | number;
+  return questions.map((q: Omit<ChoiceQuestionRow, 'correct_option'>) => ({
+    ...q,
+    options: JSON.parse(q.options) as Record<string, string>
+  }))
+}
+
+export async function addChoiceQuestion(q: ChoiceQuestion): Promise<void> {
+  await prisma.choiceQuestion.create({
+    data: {
+      ...q,
+      options: JSON.stringify(q.options),
+      updated_at: new Date()
     }
-  });
+  })
+}
 
-  const keys = Object.keys(safeUpdates);
-  if (keys.length === 0) return { success: false, error: 'No fields to update' };
-
-  const setClause = keys.map(key => `${key} = ?`).join(', ');
-  const stmt = db.prepare(`UPDATE choice_questions SET ${setClause}, updated_at = ? WHERE id = ?`);
-  const values = [...Object.values(safeUpdates), new Date().toISOString(), id];
-
+export async function updateChoiceQuestion(id: number, updates: Partial<ChoiceQuestion>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(...values);
-    return { success: true, changes: result.changes };
+    const data: Record<string, unknown> = { ...updates, updated_at: new Date() }
+    
+    if (data.options && typeof data.options === 'object') {
+      data.options = JSON.stringify(data.options)
+    }
+
+    delete data.id
+
+    const result = await prisma.choiceQuestion.update({
+      where: { id },
+      data
+    })
+    console.log(result) 
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error: error as DbError };
+    return { success: false, error }
   }
 }
 
-// 删除选择题
-export function deleteChoiceQuestion(id: number) {
-  const stmt = db.prepare('DELETE FROM choice_questions WHERE id = ?');
+export async function deleteChoiceQuestion(id: number): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(id);
-    return { success: true, changes: result.changes };
+    await prisma.choiceQuestion.delete({
+      where: { id }
+    })
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error: error as DbError };
+    return { success: false, error }
   }
 }
 
-// 计算得分（传入学员答案）
-export function calculateChoiceScore(studentAnswers: { [questionId: number]: string }): number {
-  let score = 0;
-  const allQuestions = getAllChoiceQuestions();
+export async function calculateChoiceScore(studentAnswers: { [questionId: number]: string }): Promise<number> {
+  let score = 0
+  const allQuestions = await getAllChoiceQuestions()
 
   for (const [idStr, answer] of Object.entries(studentAnswers)) {
-    const question = allQuestions.find((q) => q.id === Number(idStr));
+    const question = allQuestions.find((q) => q.id === Number(idStr))
     if (question && question.correct_option === answer) {
-      score += question.score ?? 1; // 如果没有设置分值，则默认得分 1
+      score += question.score ?? 1
     }
   }
 
-  return score;
+  return score
 }
 
-export function deleteChoiceQuestionsByTaskNumber(taskNumber: number) {
-  const stmt = db.prepare('DELETE FROM choice_questions WHERE task_number = ?');
+export async function deleteChoiceQuestionsByTaskNumber(taskNumber: number): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(taskNumber);
-    return { success: true, changes: result.changes };
+    const result = await prisma.choiceQuestion.deleteMany({
+      where: { task_number: taskNumber }
+    })
+    return { success: true, changes: result.count }
   } catch (error) {
-    return { success: false, error: error as DbError };
+    return { success: false, error }
   }
 }

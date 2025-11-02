@@ -1,5 +1,5 @@
-// ./src/lib/db/query/tasks.ts
-import db from '@/lib/db';
+// lib/db/query/tasks.ts
+import prisma from '@/lib/db'
 
 export interface Task {
   id?: number;
@@ -17,69 +17,61 @@ export interface Task {
   task5_practice_score: number;
   task6_choice_score: number;
   task6_practice_score: number;
-  created_at: string;
-  updated_at?: string;
+  task1_choice_completed: boolean;
+  task2_choice_completed: boolean;
+  task3_choice_completed: boolean;
+  task4_choice_completed: boolean;
+  task5_choice_completed: boolean;
+  task6_choice_completed: boolean;
+  created_at?: Date;
+  updated_at?: Date;
 }
 
-// 获取所有任务数据
-export function getAllTasks() {
-  return db.prepare('SELECT * FROM tasks ORDER BY created_at DESC').all();
+export async function getAllTasks(): Promise<Task[]> {
+  return await prisma.task.findMany({
+    orderBy: { created_at: 'desc' }
+  })
 }
 
-// 根据 student_id 获取任务数据
-export function getTaskByStudentId(studentId: string) {
-  return db.prepare('SELECT * FROM tasks WHERE student_id = ?').get(studentId);
+export async function getTaskByStudentId(studentId: string): Promise<Task | null> {
+  return await prisma.task.findFirst({
+    where: { student_id: studentId }
+  })
 }
 
-// 插入任务数据
-export function addTask(task: Task) {
-  const stmt = db.prepare(`
-    INSERT INTO tasks (
-      student_id, student_name, task1_choice_score, task1_practice_score,
-      task2_choice_score, task2_practice_score, task3_choice_score, task3_practice_score,
-      task4_choice_score, task4_practice_score, task5_choice_score, task5_practice_score,
-      task6_choice_score, task6_practice_score, created_at, updated_at
-    ) VALUES (
-      @student_id, @student_name, @task1_choice_score, @task1_practice_score,
-      @task2_choice_score, @task2_practice_score, @task3_choice_score, @task3_practice_score,
-      @task4_choice_score, @task4_practice_score, @task5_choice_score, @task5_practice_score,
-      @task6_choice_score, @task6_practice_score, @created_at, @updated_at
-    )
-  `);
-  const params = { ...task, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  stmt.run(params);
+export async function addTask(task: Task): Promise<void> {
+  await prisma.task.create({
+    data: {
+      ...task,
+      updated_at: new Date()
+    }
+  })
 }
 
-// 更新任务数据
-export function updateTask(id: number, task: Partial<Task>) {
-  const safeUpdates = { ...task };
-  delete safeUpdates.id; // 防止修改 id 字段
-  const keys = Object.keys(safeUpdates);
-  
-  if (keys.length === 0) return { success: false, error: 'No fields to update' };
-  
-  const setClause = keys.map(key => `${key} = ?`).join(', ');
-  const now = new Date().toISOString();
-  
-  const stmt = db.prepare(`UPDATE tasks SET ${setClause}, updated_at = ? WHERE id = ?`);
-  const values = [...Object.values(safeUpdates), now, id];
-  
+export async function updateTask(id: number, task: Partial<Task>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(...values);
-    return { success: true, changes: result.changes };
+    const data: Partial<Task> = { ...task }
+    delete data.id
+    data.updated_at = new Date()
+
+    await prisma.task.update({
+      where: { id },
+      data
+    })
+
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-// 删除任务数据
-export function deleteTask(id: number) {
-  const stmt = db.prepare('DELETE FROM tasks WHERE id = ?');
-  
+export async function deleteTask(id: number): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(id);
-    return { success: true, changes: result.changes };
+    await prisma.task.delete({
+      where: { id }
+    })
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }

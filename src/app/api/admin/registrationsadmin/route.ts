@@ -17,7 +17,7 @@ export async function POST(request: Request) {
 
     switch (action) {
       case 'getAll': {
-        const all = getAllRegistrations();
+        const all =await getAllRegistrations();
         return NextResponse.json({ data: all });
       }
 
@@ -26,16 +26,16 @@ export async function POST(request: Request) {
           return NextResponse.json({ message: 'Missing student_id or approved' }, { status: 400 });
         }
 
-        const reg = getRegistrationByStudentId(payload.student_id);
+        const reg =await getRegistrationByStudentId(payload.student_id);
         if (!reg) {
           return NextResponse.json({ message: 'Registration not found' }, { status: 404 });
         }
 
-        const approveResult = updateApprovalStatus(reg.id, payload.approved);
+        const approveResult =await updateApprovalStatus(reg.id, payload.approved);
 
         // ✅ 审核通过后添加初始化任务数据
         if (payload.approved) {
-          const existingTask = getTaskByStudentId(payload.student_id);
+          const existingTask =await getTaskByStudentId(payload.student_id);
           if (!existingTask) {}
       /*     if (!existingTask) {
             addTask({
@@ -67,10 +67,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ message: 'Missing student_id or updates' }, { status: 400 });
         }
 
-        const toUpdate = getRegistrationByStudentId(payload.student_id);
+        const toUpdate =await getRegistrationByStudentId(payload.student_id);
         if (!toUpdate) return NextResponse.json({ message: 'Registration not found' }, { status: 404 });
 
-        const updateResult = updateRegistration(toUpdate.id, payload.updates);
+        const updateResult =await updateRegistration(toUpdate.id, payload.updates);
         return NextResponse.json(updateResult);
       }
 
@@ -79,10 +79,10 @@ export async function POST(request: Request) {
           return NextResponse.json({ message: 'Missing student_id' }, { status: 400 });
         }
 
-        const toDelete = getRegistrationByStudentId(payload.student_id);
+        const toDelete =await getRegistrationByStudentId(payload.student_id);
         if (!toDelete) return NextResponse.json({ message: 'Registration not found' }, { status: 404 });
 
-        const deleteResult = deleteRegistration(toDelete.id);
+        const deleteResult =await deleteRegistration(toDelete.id);
         return NextResponse.json(deleteResult);
       }
 

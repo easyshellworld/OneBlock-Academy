@@ -29,13 +29,13 @@ export async function GET(request: Request) {
 
     // 根据type参数返回不同的数据
     if (type === 'projects') {
-      const projects = getAllProjects();
+      const projects =await getAllProjects();
       return NextResponse.json<ApiResponse>({
         success: true,
         data: projects
       });
     } else if (type === 'claims') {
-      const claims = getAllStudentProjectClaims();
+      const claims =await getAllStudentProjectClaims();
       return NextResponse.json<ApiResponse>({
         success: true,
         data: claims
@@ -89,7 +89,7 @@ export async function DELETE(request: Request) {
 
     // 根据类型删除不同的数据
     if (type === 'project') {
-      const result = deleteProjectById(id);
+      const result =await deleteProjectById(id);
       if (result.success) {
         return NextResponse.json<ApiResponse>({
           success: true,
@@ -106,7 +106,7 @@ export async function DELETE(request: Request) {
         );
       }
     } else if (type === 'claim') {
-      const result = deleteStudentProjectClaimById(id);
+      const result =await deleteStudentProjectClaimById(id);
       if (result.success) {
         return NextResponse.json<ApiResponse>({
           success: true,

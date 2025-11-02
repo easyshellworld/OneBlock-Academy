@@ -1,65 +1,6 @@
-import db from '@/lib/db';
+// lib/db/query/StudentProjectClaim.ts
+import prisma from '@/lib/db'
 
-export function insertStudentProjectClaim(data: {
-  student_id: string;
-  project_id: string;
-  project_name: string;
-  nft_address: string;
-  claim_address: string;
-  erc20_address: string;
-  has_claimed?: boolean; // 可选，默认 ture
-}) {
-  const stmt = db.prepare(`
-    INSERT INTO student_project_claims (
-      student_id, project_id, project_name,
-      nft_address, claim_address, erc20_address,
-      has_claimed, created_at
-    ) VALUES (
-      @student_id, @project_id, @project_name,
-      @nft_address, @claim_address, @erc20_address,
-      @has_claimed, CURRENT_TIMESTAMP
-    )
-  `);
-
-  return stmt.run({
-    student_id: data.student_id ?? "",
-    project_id: data.project_id ?? "",
-    project_name: data.project_name ?? "",
-    nft_address: data.nft_address ?? "",
-    claim_address: data.claim_address ?? "",
-    erc20_address: data.erc20_address ?? "",
-    has_claimed: data.has_claimed === undefined ? 1 : data.has_claimed ? 1 : 0,
-    
-  });
-}
-
-
-
-export function getProjectsByStudentId(student_id: string) {
-  const stmt = db.prepare(`
-    SELECT * FROM student_project_claims
-    WHERE student_id = ?
-    ORDER BY created_at DESC
-  `);
-
-  return stmt.all(student_id);
-}
-
-export function getLatestProject() {
-    const stmt = db.prepare(`
-      SELECT *
-      FROM projects
-      ORDER BY created_at DESC
-      LIMIT 1
-    `);
-  
-    return stmt.get();
-  }
-
-
-  /**
- * 项目数据接口
- */
 export interface Project {
   id: number;
   project_id: string;
@@ -69,13 +10,10 @@ export interface Project {
   nft_address: string;
   claim_address: string;
   erc20_address: string;
-  created_at: string;
-  updated_at: string | null;
+  created_at: Date;
+  updated_at: Date | null;
 }
 
-/**
- * 学生项目申领数据接口
- */
 export interface StudentProjectClaim {
   id: number;
   student_id: string;
@@ -85,14 +23,11 @@ export interface StudentProjectClaim {
   nft_address: string;
   claim_address: string;
   erc20_address: string;
-  has_claimed: number; // SQLite存储为0或1
-  created_at: string;
-  updated_at: string | null;
+  has_claimed: boolean;
+  created_at: Date;
+  updated_at: Date | null;
 }
 
-/**
- * 删除操作结果接口
- */
 export interface DeleteResult {
   success: boolean;
   message: string;
@@ -100,96 +35,202 @@ export interface DeleteResult {
   error?: Error;
 }
 
-/**
- * 获取所有项目数据
- * @returns 项目数据列表
- */
-export function getAllProjects(): Project[] {
-  const projects = db.prepare(`
-    SELECT 
-      id, 
-      project_id, 
-      project_name, 
-      factory_address, 
-      whitelist_address, 
-      nft_address, 
-      claim_address, 
-      erc20_address, 
-      created_at, 
-      updated_at
-    FROM projects
-    ORDER BY created_at DESC
-  `).all() as Project[];
-  
-  return projects;
+export interface SaveProjectData {
+  projectId: string;
+  projectName: string;
+  factoryAddress: string;
+  whitelistAddress: string;
+  nftAddress: string;
+  claimAddress: string;
+  erc20Address: string;
 }
 
-/**
- * 获取所有学生项目申领数据，并关联学生姓名
- * @returns 学生项目申领数据列表
- */
-export function getAllStudentProjectClaims(): StudentProjectClaim[] {
-  const claims = db.prepare(`
-    SELECT 
-      spc.id,
-      spc.student_id,
-      reg.student_name,
-      spc.project_id,
-      spc.project_name,
-      spc.nft_address,
-      spc.claim_address,
-      spc.erc20_address,
-      spc.has_claimed,
-      spc.created_at,
-      spc.updated_at
-    FROM student_project_claims spc
-    JOIN registrations reg ON spc.student_id = reg.student_id
-    ORDER BY spc.created_at DESC
-  `).all() as StudentProjectClaim[];
-  
-  return claims;
+// 定义包含关联数据的类型
+interface StudentProjectClaimWithRegistration {
+  id: number;
+  student_id: string;
+  project_id: string;
+  project_name: string;
+  nft_address: string;
+  claim_address: string;
+  erc20_address: string;
+  has_claimed: boolean;
+  created_at: Date;
+  updated_at: Date | null;
+  registration: {
+    student_name: string;
+  };
 }
 
-/**
- * 根据ID删除项目
- * @param id 项目ID
- * @returns 删除操作结果
- */
-export function deleteProjectById(id: number): DeleteResult {
+// 保存或更新项目（upsert操作）
+export async function saveProject(data: SaveProjectData): Promise<{ success: boolean; error?: string }> {
   try {
-    const result = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
-    return {
-      success: result.changes > 0,
-      message: result.changes > 0 ? '项目删除成功' : '未找到指定项目',
-      changes: result.changes
+    const { projectId, projectName, factoryAddress, whitelistAddress, nftAddress, claimAddress, erc20Address } = data;
+
+    // 使用 Prisma 的 upsert 操作
+    await prisma.project.upsert({
+      where: {
+        project_id: projectId
+      },
+      update: {
+        project_name: projectName,
+        factory_address: factoryAddress,
+        whitelist_address: whitelistAddress,
+        nft_address: nftAddress,
+        claim_address: claimAddress,
+        erc20_address: erc20Address,
+        updated_at: new Date()
+      },
+      create: {
+        project_id: projectId,
+        project_name: projectName,
+        factory_address: factoryAddress,
+        whitelist_address: whitelistAddress,
+        nft_address: nftAddress,
+        claim_address: claimAddress,
+        erc20_address: erc20Address,
+        created_at: new Date(),
+        updated_at: new Date()
+      }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('保存项目失败:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : '未知错误' 
     };
+  }
+}
+
+export async function insertStudentProjectClaim(data: {
+  student_id: string;
+  project_id: string;
+  project_name: string;
+  nft_address: string;
+  claim_address: string;
+  erc20_address: string;
+  has_claimed?: boolean;
+}) {
+  return await prisma.studentProjectClaim.create({
+    data: {
+      ...data,
+      has_claimed: data.has_claimed ?? true
+    }
+  })
+}
+
+export async function getProjectsByStudentId(student_id: string) {
+  return await prisma.studentProjectClaim.findMany({
+    where: { student_id },
+    orderBy: { created_at: 'desc' }
+  })
+}
+
+export async function getLatestProject() {
+  return await prisma.project.findFirst({
+    orderBy: { created_at: 'desc' }
+  })
+}
+
+export async function getAllProjects(): Promise<Project[]> {
+  return await prisma.project.findMany({
+    orderBy: { created_at: 'desc' }
+  })
+}
+
+export async function getAllStudentProjectClaims(): Promise<StudentProjectClaim[]> {
+  const claims = await prisma.studentProjectClaim.findMany({
+    include: {
+      registration: {
+        select: {
+          student_name: true
+        }
+      }
+    },
+    orderBy: { created_at: 'desc' }
+  }) as StudentProjectClaimWithRegistration[];
+
+  return claims.map((claim: StudentProjectClaimWithRegistration) => ({
+    id: claim.id,
+    student_id: claim.student_id,
+    student_name: claim.registration.student_name,
+    project_id: claim.project_id,
+    project_name: claim.project_name,
+    nft_address: claim.nft_address,
+    claim_address: claim.claim_address,
+    erc20_address: claim.erc20_address,
+    has_claimed: claim.has_claimed,
+    created_at: claim.created_at,
+    updated_at: claim.updated_at
+  }))
+}
+
+export async function deleteProjectById(id: number): Promise<DeleteResult> {
+  try {
+    await prisma.project.delete({
+      where: { id }
+    })
+    
+    return {
+      success: true,
+      message: '项目删除成功',
+      changes: 1
+    }
   } catch (error) {
     return {
       success: false,
       message: `删除项目失败: ${(error as Error).message}`,
       error: error as Error
-    };
+    }
   }
 }
 
-/**
- * 根据ID删除学生项目申领记录
- * @param id 申领记录ID
- * @returns 删除操作结果
- */
-export function deleteStudentProjectClaimById(id: number): DeleteResult {
+export async function deleteStudentProjectClaimById(id: number): Promise<DeleteResult> {
   try {
-    const result = db.prepare('DELETE FROM student_project_claims WHERE id = ?').run(id);
+    await prisma.studentProjectClaim.delete({
+      where: { id }
+    })
+    
     return {
-      success: result.changes > 0,
-      message: result.changes > 0 ? '申领记录删除成功' : '未找到指定申领记录',
-      changes: result.changes
-    };
+      success: true,
+      message: '申领记录删除成功',
+      changes: 1
+    }
   } catch (error) {
     return {
       success: false,
       message: `删除申领记录失败: ${(error as Error).message}`,
       error: error as Error
-    };
+    }
+  }
+}
+
+// 根据 project_id 获取项目
+export async function getProjectByProjectId(projectId: string): Promise<Project | null> {
+  return await prisma.project.findUnique({
+    where: { project_id: projectId }
+  })
+}
+
+// 根据 project_id 删除项目
+export async function deleteProjectByProjectId(projectId: string): Promise<DeleteResult> {
+  try {
+    await prisma.project.delete({
+      where: { project_id: projectId }
+    })
+    
+    return {
+      success: true,
+      message: '项目删除成功',
+      changes: 1
+    }
+  } catch (error) {
+    return {
+      success: false,
+      message: `删除项目失败: ${(error as Error).message}`,
+      error: error as Error
+    }
   }
 }

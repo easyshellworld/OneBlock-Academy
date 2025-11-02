@@ -1,10 +1,8 @@
-// ./src/lib/db/query/registrations.ts
-import db from '@/lib/db';
+// lib/db/query/registrations.ts
+import prisma from '@/lib/db'
 
-
-const now = new Date().toISOString(); // 当前时间字符串
 export interface Registration {
-  id:number;
+  id: number;
   student_name: string;
   wechat_id: string;
   phone: string;
@@ -31,134 +29,103 @@ export interface Registration {
   student_id: string;
   approved?: boolean;
   created_at?: string;
-  updated_at?:string;
-
+  updated_at?: string;
 }
 
-
-
-export function addRegistration(reg: Omit<Registration, 'student_id' | 'id'>): {success: boolean, data?: Registration} {
-  // 查询当前最大 student_id（转为整数）
-  const result = db.prepare(
-    `SELECT MAX(CAST(student_id AS INTEGER)) as maxId FROM registrations WHERE student_id GLOB '[0-9]*'`
-  ).get() as { maxId: string | null };
-
-  const initialStudentId=process.env.INITIAL_STUDENT_ID || "1799"
-
-  const maxId = result?.maxId ?? initialStudentId; // 如果没有记录就从 1799 开始（下一条是 1800）
-  const nextId = parseInt(maxId, 10)  + 1;
-  const formattedId = nextId.toString().padStart(4, '0'); // 确保4位格式
-
-  const stmt = db.prepare(
-    `INSERT INTO registrations (
-      student_name, wechat_id, phone, email, gender, age_group, education,
-      university, major, city, role, languages, experience, source,
-      has_web3_experience, study_time, interests, platforms,
-      willing_to_hackathon, willing_to_lead, wants_private_service,
-      referrer, wallet_address, student_id, approved, created_at, updated_at
-    ) VALUES (
-      @student_name, @wechat_id, @phone, @email, @gender, @age_group, @education,
-      @university, @major, @city, @role, @languages, @experience, @source,
-      @has_web3_experience, @study_time, @interests, @platforms,
-      @willing_to_hackathon, @willing_to_lead, @wants_private_service,
-      @referrer, @wallet_address, @student_id, @approved, @created_at, @updated_at
-    )`
-  );
-
-  const params = {
-    ...reg,
-    student_id: formattedId, // 自动生成的 student_id
-    has_web3_experience: reg.has_web3_experience ? 1 : 0,
-    willing_to_hackathon: reg.willing_to_hackathon ? 1 : 0,
-    willing_to_lead: reg.willing_to_lead ? 1 : 0,
-    wants_private_service: reg.wants_private_service ? 1 : 0,
-    approved: reg.approved ? 1 : (reg.approved === false ? 0 : undefined),
-    created_at: now,
-    updated_at: now,
-  };
-
+export async function addRegistration(reg: Omit<Registration, 'student_id' | 'id'>): Promise<{success: boolean, data?: Registration}> {
   try {
-    const result = stmt.run(params);
-    if (result.changes > 0) {
-      const inserted = getRegistrationByStudentId(formattedId);
-      return { success: true, data: inserted };
-    }
-    return { success: false };
+    // 获取当前最大 student_id
+    const result = await prisma.registration.aggregate({
+      _max: {
+        student_id: true
+      }
+    })
+
+    const initialStudentId = process.env.INITIAL_STUDENT_ID || "1799"
+    const maxId = result._max.student_id || initialStudentId
+    const nextId = parseInt(maxId, 10) + 1
+    const formattedId = nextId.toString().padStart(4, '0')
+
+    const data = await prisma.registration.create({
+      data: {
+        ...reg,
+        student_id: formattedId,
+        updated_at: new Date()
+      }
+    })
+
+    return { success: true, data }
   } catch (error) {
-    console.error('Failed to add registration:', error);
-    return { success: false };
+    console.error('Failed to add registration:', error)
+    return { success: false }
   }
 }
 
-
-// 更新注册信息的审核状态
-export function updateApprovalStatus(id: number, approved: boolean) {
-  const now = new Date().toISOString();
-  const stmt = db.prepare('UPDATE registrations SET approved = ?, updated_at = ? WHERE id = ?');
-  
+export async function updateApprovalStatus(id: number, approved: boolean): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(approved ? 1 : 0, now, id);
-    return { success: true, changes: result.changes };
+    await prisma.registration.update({
+      where: { id },
+      data: { 
+        approved,
+        updated_at: new Date()
+      }
+    })
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-// 更新注册信息
-export function updateRegistration(id: number, updates: Partial<Registration>) {
-  // 防止更新id和student_id字段
-  const safeUpdates = { ...updates };
-  delete safeUpdates.id;
-  delete safeUpdates.student_id;
-  
-  // 构建更新语句
-  const keys = Object.keys(safeUpdates);
-  if (keys.length === 0) return { success: false, error: 'No fields to update' };
-  
-  const setClause = keys.map(key => `${key} = ?`).join(', ');
-  const now = new Date().toISOString();
-  
-  const stmt = db.prepare(`UPDATE registrations SET ${setClause}, updated_at = ? WHERE id = ?`);
-  
-  // 准备参数
-  const values = [...Object.values(safeUpdates), now, id];
-  
+export async function updateRegistration(id: number, updates: Partial<Registration>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(...values);
-    return { success: true, changes: result.changes };
+    const data: Partial<Registration> = { ...updates }
+    delete data.id
+    delete data.student_id
+    data.updated_at = new Date().toDateString()
+
+    await prisma.registration.update({
+      where: { id },
+      data
+    })
+
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-// 删除注册信息
-export function deleteRegistration(id: number) {
-  const stmt = db.prepare('DELETE FROM registrations WHERE id = ?');
-  
+export async function deleteRegistration(id: number): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
-    const result = stmt.run(id);
-    return { success: true, changes: result.changes };
+    await prisma.registration.delete({
+      where: { id }
+    })
+    return { success: true, changes: 1 }
   } catch (error) {
-    return { success: false, error };
+    return { success: false, error }
   }
 }
 
-
-// 获取所有注册信息
-export function getAllRegistrations() {
-  return db.prepare('SELECT * FROM registrations ORDER BY created_at DESC').all();
+export async function getAllRegistrations(): Promise<Registration[]> {
+  return await prisma.registration.findMany({
+    orderBy: { created_at: 'desc' }
+  })
 }
 
-// 根据ID获取单个注册信息
-export function getRegistrationById(id: number) {
-  return db.prepare('SELECT * FROM registrations WHERE id = ?').get(id);
+export async function getRegistrationById(id: number): Promise<Registration | null> {
+  return await prisma.registration.findUnique({
+    where: { id }
+  })
 }
 
-// 根据student_id获取注册信息
-export function getRegistrationByStudentId(studentId: string){
-  return db.prepare('SELECT * FROM registrations WHERE student_id = ?').get(studentId) as Registration;
+export async function getRegistrationByStudentId(studentId: string): Promise<Registration | null> {
+  return await prisma.registration.findUnique({
+    where: { student_id: studentId }
+  })
 }
-// 获取已审核或未审核的注册信息
-export function getRegistrationsByApprovalStatus(approved: boolean) {
-  return db.prepare('SELECT * FROM registrations WHERE approved = ? ORDER BY created_at DESC').all(approved ? 1 : 0);
+
+export async function getRegistrationsByApprovalStatus(approved: boolean): Promise<Registration[]> {
+  return await prisma.registration.findMany({
+    where: { approved },
+    orderBy: { created_at: 'desc' }
+  })
 }

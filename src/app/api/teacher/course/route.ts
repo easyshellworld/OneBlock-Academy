@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
 
   try {
     if (action === 'add') {
-      addCourseContent(data);
+      await addCourseContent(data);
       return NextResponse.json({ success: true, message: '内容新增成功' });
     }
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       if (!data.id) {
         return NextResponse.json({ success: false, message: '更新内容必须提供 id' }, { status: 400 });
       }
-      const result = updateCourseContent(data.id, data);
+      const result =await updateCourseContent(data.id, data);
       return NextResponse.json(result);
     }
 
@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       if (!data.id) {
         return NextResponse.json({ success: false, message: '删除内容必须提供 id' }, { status: 400 });
       }
-      const result = deleteCourseContent(data.id);
+      const result =await deleteCourseContent(data.id);
       return NextResponse.json(result);
     }
 

@@ -1,7 +1,5 @@
-// src/lib/db/query/taskScores.ts
-
-import db from '@/lib/db'
-import type { RunResult } from 'better-sqlite3'
+// lib/db/query/taskScores.ts
+import prisma from '@/lib/db'
 
 export type ScoreType = 'choice' | 'practice'
 
@@ -13,7 +11,6 @@ export interface StudentScore {
   total_score: number;
 }
 
-
 export interface TaskScore {
   id: number
   student_id: string
@@ -21,8 +18,8 @@ export interface TaskScore {
   score_type: ScoreType
   score: number
   completed: boolean
-  created_at: string
-  updated_at: string | null
+  created_at: Date
+  updated_at: Date | null
 }
 
 export interface OverallSummary {
@@ -39,7 +36,7 @@ interface TaskSummary {
 }
 
 interface RawScore {
-  id:number,
+  id: number
   student_id: string
   student_name: string | null
   task_number: number
@@ -47,173 +44,168 @@ interface RawScore {
   score: number
 }
 
-/**
- * 新增一条评分记录，返回新记录的 id
- */
-export function createTaskScore(payload: {
+interface TaskSummaryResult {
+  task_number: number
+  score_type: string
+  _sum: {
+    score: number | null
+  }
+  _count: number
+}
+
+interface StudentWithScores {
+  student_id: string
+  student_name: string
+  wechat_id: string
+  wallet_address: string
+  task_scores: Array<{ score: number }>
+}
+
+interface RawScoreItem {
+  id: number
+  student_id: string
+  registration: {
+    student_name: string
+  } | null
+  task_number: number
+  score_type: string
+  score: number
+}
+
+export async function createTaskScore(payload: {
   student_id: string
   task_number: number
   score_type: ScoreType
-  score?: number
+  score: number
   completed?: boolean
-}): number {
-  const stmt = db.prepare<
-    { student_id: string; task_number: number; score_type: ScoreType; score: number; completed: number },
-    RunResult
-  >(
-    `
-    INSERT INTO task_scores
-      (student_id, task_number, score_type, score, completed)
-    VALUES
-      (@student_id, @task_number, @score_type, @score, @completed)
-  `
-  )
-  const info = stmt.run({
-    student_id: payload.student_id,
-    task_number: payload.task_number,
-    score_type: payload.score_type,
-    score: payload.score ?? 0,
-    completed: payload.completed ? 1 : 0,
+}): Promise<number> {
+  const result = await prisma.taskScore.create({
+    data: {
+      student_id: payload.student_id,
+      task_number: payload.task_number,
+      score_type: payload.score_type,
+      score: payload.score ?? 0,
+      completed: payload.completed ?? false
+    }
   })
-  return info.lastInsertRowid as number
+  return result.id
 }
 
-/**
- * 根据主键删除一条评分记录
- */
-export function deleteTaskScore(id: number): void {
-  db.prepare(`DELETE FROM task_scores WHERE id = ?`).run(id)
+export async function deleteTaskScore(id: number): Promise<void> {
+  await prisma.taskScore.delete({
+    where: { id }
+  })
 }
 
-/**
- * 更新评分记录的分数、完成状态或类型
- */
-export function updateTaskScore(
+export async function updateTaskScore(
   id: number,
   updates: Partial<Pick<TaskScore, 'score' | 'completed' | 'score_type'>>
-): void {
-  const sets: string[] = []
-  if (updates.score !== undefined) sets.push(`score = @score`)
-  if (updates.completed !== undefined) sets.push(`completed = @completed`)
-  if (updates.score_type !== undefined) sets.push(`score_type = @score_type`)
-
-  if (sets.length === 0) {
-    return // 没有需要更新的字段
-  }
-
-  const sql = `
-    UPDATE task_scores
-    SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP
-    WHERE id = @id
-  `
-  db.prepare<
-    { id: number; score?: number; completed?: number; score_type?: ScoreType }
-  >(sql).run({
-    id,
-    score: updates.score,
-    completed: updates.completed ? 1 : 0,
-    score_type: updates.score_type,
+): Promise<void> {
+  await prisma.taskScore.update({
+    where: { id },
+    data: {
+      ...updates,
+      updated_at: new Date()
+    }
   })
 }
 
-/**
- * 查询某个学员的所有记录（按任务编号升序）
- */
-export function getTaskScoresByStudent(student_id: string): TaskScore[] {
-  return db
-    .prepare<[string], TaskScore>(
-      `
-      SELECT *
-      FROM task_scores
-      WHERE student_id = ?
-      ORDER BY task_number
-    `
-    )
-    .all(student_id)
+export async function getTaskScoresByStudent(student_id: string): Promise<TaskScore[]> {
+  return await prisma.taskScore.findMany({
+    where: { student_id },
+    orderBy: { task_number: 'asc' }
+  })
 }
 
-/**
- * 统计某个学员每道题得分汇总及 overall 总分/平均分/记录数
- */
-export function getStudentScoreSummary(student_id: string): {
+export async function getStudentScoreSummary(student_id: string): Promise<{
   perTask: TaskSummary[]
   overall: OverallSummary
-} {
-  const perTask = db
-    .prepare<[string], TaskSummary>(
-      `
-      SELECT
-        task_number,
-        score_type,
-        SUM(score)      AS total_score,
-        SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS times_completed
-      FROM task_scores
-      WHERE student_id = ?
-      GROUP BY task_number, score_type
-      ORDER BY task_number
-    `
-    )
-    .all(student_id)
-
-  const overall = db
-    .prepare<[string], OverallSummary>(
-      `
-      SELECT
-        COALESCE(SUM(score), 0)  AS total_score,
-        COALESCE(AVG(score), 0)  AS avg_score,
-        COUNT(*)                 AS records_count
-      FROM task_scores
-      WHERE student_id = ?
-    `
-    )
-    .get(student_id) ?? {
-      total_score: 0,
-      avg_score: 0,
-      records_count: 0,
+}> {
+  const perTaskResults = await prisma.taskScore.groupBy({
+    by: ['task_number', 'score_type'],
+    where: { student_id },
+    _sum: {
+      score: true
+    },
+    _count: {
+      _all: true
     }
+  }) as TaskSummaryResult[]
 
-  return { perTask, overall }
+  const overall = await prisma.taskScore.aggregate({
+    where: { student_id },
+    _sum: { score: true },
+    _avg: { score: true },
+    _count: true
+  })
+
+  const perTask: TaskSummary[] = perTaskResults.map((item: TaskSummaryResult) => ({
+    task_number: item.task_number,
+    score_type: item.score_type as ScoreType,
+    total_score: item._sum.score || 0,
+    times_completed: item._count
+  }))
+
+  return {
+    perTask,
+    overall: {
+      total_score: overall._sum.score || 0,
+      avg_score: overall._avg.score || 0,
+      records_count: overall._count || 0
+    }
+  }
 }
 
-/**
- * 获取所有原始记录（附带 student_name）
- */
-export function getRawScores(): RawScore[] {
-  return db
-    .prepare<[], RawScore>(
-      `
-      SELECT
-        ts.id,
-        ts.student_id,
-        r.student_name AS student_name,
-        ts.task_number,
-        ts.score_type,
-        ts.score
-      FROM task_scores ts
-      LEFT JOIN registrations r
-        ON ts.student_id = r.student_id
-      ORDER BY ts.student_id, ts.task_number
-    `
-    )
-    .all()
+export async function getRawScores(): Promise<RawScore[]> {
+  const results = await prisma.taskScore.findMany({
+    select: {
+      id: true,
+      student_id: true,
+      registration: {
+        select: {
+          student_name: true
+        }
+      },
+      task_number: true,
+      score_type: true,
+      score: true
+    },
+    orderBy: [
+      { student_id: 'asc' },
+      { task_number: 'asc' }
+    ]
+  }) as RawScoreItem[]
+
+  return results.map((item: RawScoreItem) => ({
+    id: item.id,
+    student_id: item.student_id,
+    student_name: item.registration?.student_name || null,
+    task_number: item.task_number,
+    score_type: item.score_type as ScoreType,
+    score: item.score
+  }))
 }
 
+export async function getStudentScores(): Promise<StudentScore[]> {
+  const result = await prisma.registration.findMany({
+    select: {
+      student_id: true,
+      student_name: true,
+      wechat_id: true,
+      wallet_address: true,
+      task_scores: {
+        select: {
+          score: true
+        }
+      }
+    }
+  }) as StudentWithScores[]
 
-
-export function getStudentScores(): StudentScore[] {
-  const stmt = db.prepare<[], StudentScore>(`
-    SELECT 
-      r.student_id,
-      r.student_name,
-      r.wechat_id,
-      r.wallet_address,
-      IFNULL(SUM(t.score), 0) AS total_score
-    FROM registrations r
-    LEFT JOIN task_scores t ON r.student_id = t.student_id
-    GROUP BY r.student_id
-    ORDER BY total_score DESC;
-  `);
-
-  
-  return stmt.all();
+  return result.map((student: StudentWithScores) => ({
+    student_id: student.student_id,
+    student_name: student.student_name,
+    wechat_id: student.wechat_id,
+    wallet_address: student.wallet_address,
+    total_score: student.task_scores.reduce((sum: number, score: { score: number }) => sum + score.score, 0)
+  })).sort((a: StudentScore, b: StudentScore) => b.total_score - a.total_score)
 }

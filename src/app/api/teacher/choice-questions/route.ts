@@ -18,15 +18,15 @@ export async function POST(request: NextRequest) {
     switch (action) {
       case 'get':
         // 获取所有选择题
-        const questions = getAllChoiceQuestions();
+        const questions =await getAllChoiceQuestions();
         return NextResponse.json({ success: true, data: questions });
 
       case 'add':
         // 添加选择题
         if (Array.isArray(data.questions)) {
           // 批量添加一组题目
-          data.questions.forEach((question: ChoiceQuestion) => {
-            addChoiceQuestion(question);
+          data.questions.forEach(async (question: ChoiceQuestion) => {
+            await addChoiceQuestion(question);
           });
           return NextResponse.json({ 
             success: true, 
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
           });
         } else {
           // 添加单个题目
-          addChoiceQuestion(data.question);
+          await addChoiceQuestion(data.question);
           return NextResponse.json({ 
             success: true, 
             message: 'Successfully added question' 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        const updateResult = updateChoiceQuestion(data.id, data.updates);
+        const updateResult =await updateChoiceQuestion(data.id, data.updates);
         
         if (updateResult.success) {
           return NextResponse.json({ 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
           );
         }
         
-        const deleteResult = deleteChoiceQuestion(Number(data.id));
+        const deleteResult =await deleteChoiceQuestion(Number(data.id));
         
         if (deleteResult.success) {
           return NextResponse.json({ 
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
             );
           }
   
-          const deleteByTaskResult = deleteChoiceQuestionsByTaskNumber(Number(data.taskNumber));
+          const deleteByTaskResult =await deleteChoiceQuestionsByTaskNumber(Number(data.taskNumber));
           
           if (deleteByTaskResult.success) {
             return NextResponse.json({ 

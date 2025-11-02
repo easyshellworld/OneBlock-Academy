@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
     }
     
     // 检查用户是否存在及其状态
-    const registertext =checkWalletAuth(address);
+    const registertext =await checkWalletAuth(address);
     
     const user = registertext
     //console.log(user)

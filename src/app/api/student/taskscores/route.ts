@@ -13,7 +13,7 @@ import { getToken } from 'next-auth/jwt'
 
 // For returning raw scores (legacy GET endpoint)
 export async function GET() {
-  const rawScores = getRawScores()
+  const rawScores =await getRawScores()
   return NextResponse.json(rawScores)
 }
 
@@ -57,13 +57,13 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ error: 'Student ID required' }, { status: 400 })
         }
         
-        const myScores = getTaskScoresByStudent(userId)
-        const summary = getStudentScoreSummary(userId)
+        const myScores =await getTaskScoresByStudent(userId)
+        const summary =await getStudentScoreSummary(userId)
         return NextResponse.json({ scores: myScores, summary })
       
       case 'getAllScores':
         // Get all student scores (for ranking)
-        const allScores = getStudentScores()
+        const allScores =await getStudentScores()
         return NextResponse.json(allScores)
       
       default:
