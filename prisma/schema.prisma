@@ -171,7 +171,7 @@ model Project {
 
   claims StudentProjectClaim[]
 
-  @@map("project")
+  @@map("projects")
 
 }
 
