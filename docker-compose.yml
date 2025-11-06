@@ -28,7 +28,7 @@ services:
     container_name: academy-app
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "300001:3000"
     environment:
       # 数据库连接
       DATABASE_URL: ${DATABASE_URL}
