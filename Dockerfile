@@ -23,10 +23,7 @@ COPY . .
 # 构建应用
 RUN npm run build
 
-# 创建启动脚本
-RUN printf '#!/bin/sh\nset -e\n\necho "Pushing database schema..."\nnpx prisma db push --schema=prisma/schema.postgres.prisma\n\necho "Running seed data..."\nnpx tsx ./scripts/init.ts\n\necho "Starting application..."\nexec npm start\n' > /app/start.sh
 
-RUN chmod +x /app/start.sh
 
 # 创建非 root 用户（在构建完成后）
 RUN addgroup -g 1001 -S nodejs && \
@@ -43,4 +40,5 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 # 使用启动脚本
-CMD ["/app/start.sh"]
+# 使用单独的启动脚本避免语法问题
+CMD ["sh", "-c", "echo 'Pushing database schema...' && npx prisma db push --schema=prisma/schema.postgres.prisma && echo 'Running seed data...' && npx tsx ./scripts/init.ts && echo 'Starting application...' && npm start"]
