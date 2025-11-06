@@ -75,7 +75,11 @@ export function RegistrationDetails({ registration, onUpdate, onApprove }: Regis
     field in editedData ? editedData[field] : registration?.[field] ?? ""
   );
 
-  const formatDate = (date?: string) => date ? new Date(date).toLocaleString() : "";
+
+  const formatDate = (date?: string | Date | null) => {
+    if (!date) return "";
+    return date instanceof Date ? date.toLocaleString() : new Date(date).toLocaleString();
+  };
 
   if (!registration) {
     return (

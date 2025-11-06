@@ -8,7 +8,7 @@ export interface StudentNote {
   title: string;
   content_markdown: string;
   created_at?: Date;
-  updated_at?: Date;
+  updated_at?: Date | null; // 修改为允许 null
 }
 
 export async function getAllStudentNotes(): Promise<StudentNote[]> {
@@ -24,21 +24,19 @@ export async function getNotesByStudentId(studentId: string): Promise<StudentNot
   })
 }
 
-export async function addStudentNote(note: StudentNote): Promise<void> {
+export async function addStudentNote(note: Omit<StudentNote, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
   await prisma.studentNote.create({
     data: {
       ...note,
+      created_at: new Date(),
       updated_at: new Date()
     }
   })
 }
 
-export async function updateStudentNoteById(id: number, student_id: string, fields: Partial<StudentNote>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
+export async function updateStudentNoteById(id: number, student_id: string, fields: Partial<Omit<StudentNote, 'id' | 'student_id' | 'created_at'>>): Promise<{ success: boolean; changes?: number; error?: unknown }> {
   try {
     const data: Partial<StudentNote> = { ...fields }
-    delete data.id
-    delete data.student_id
-    delete data.created_at
     data.updated_at = new Date()
 
     const result = await prisma.studentNote.updateMany({

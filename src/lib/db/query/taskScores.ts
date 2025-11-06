@@ -44,24 +44,15 @@ interface RawScore {
   score: number
 }
 
-interface TaskSummaryResult {
-  task_number: number
-  score_type: string
-  _sum: {
-    score: number | null
-  }
-  _count: number
-}
-
-interface StudentWithScores {
+/* interface StudentWithScores {
   student_id: string
   student_name: string
   wechat_id: string
   wallet_address: string
   task_scores: Array<{ score: number }>
-}
+} */
 
-interface RawScoreItem {
+/* interface RawScoreItem {
   id: number
   student_id: string
   registration: {
@@ -70,7 +61,7 @@ interface RawScoreItem {
   task_number: number
   score_type: string
   score: number
-}
+} */
 
 export async function createTaskScore(payload: {
   student_id: string
@@ -111,10 +102,16 @@ export async function updateTaskScore(
 }
 
 export async function getTaskScoresByStudent(student_id: string): Promise<TaskScore[]> {
-  return await prisma.taskScore.findMany({
+  const scores = await prisma.taskScore.findMany({
     where: { student_id },
     orderBy: { task_number: 'asc' }
   })
+
+  // 转换 score_type 从 string 到 ScoreType
+  return scores.map(score => ({
+    ...score,
+    score_type: score.score_type as ScoreType
+  }))
 }
 
 export async function getStudentScoreSummary(student_id: string): Promise<{
@@ -130,7 +127,7 @@ export async function getStudentScoreSummary(student_id: string): Promise<{
     _count: {
       _all: true
     }
-  }) as TaskSummaryResult[]
+  })
 
   const overall = await prisma.taskScore.aggregate({
     where: { student_id },
@@ -139,11 +136,11 @@ export async function getStudentScoreSummary(student_id: string): Promise<{
     _count: true
   })
 
-  const perTask: TaskSummary[] = perTaskResults.map((item: TaskSummaryResult) => ({
+  const perTask: TaskSummary[] = perTaskResults.map(item => ({
     task_number: item.task_number,
     score_type: item.score_type as ScoreType,
     total_score: item._sum.score || 0,
-    times_completed: item._count
+    times_completed: item._count._all // 修正这里，使用 _count._all
   }))
 
   return {
@@ -174,9 +171,9 @@ export async function getRawScores(): Promise<RawScore[]> {
       { student_id: 'asc' },
       { task_number: 'asc' }
     ]
-  }) as RawScoreItem[]
+  })
 
-  return results.map((item: RawScoreItem) => ({
+  return results.map(item => ({
     id: item.id,
     student_id: item.student_id,
     student_name: item.registration?.student_name || null,
@@ -199,13 +196,13 @@ export async function getStudentScores(): Promise<StudentScore[]> {
         }
       }
     }
-  }) as StudentWithScores[]
+  })
 
-  return result.map((student: StudentWithScores) => ({
+  return result.map(student => ({
     student_id: student.student_id,
     student_name: student.student_name,
     wechat_id: student.wechat_id,
     wallet_address: student.wallet_address,
-    total_score: student.task_scores.reduce((sum: number, score: { score: number }) => sum + score.score, 0)
-  })).sort((a: StudentScore, b: StudentScore) => b.total_score - a.total_score)
+    total_score: student.task_scores.reduce((sum, score) => sum + score.score, 0)
+  })).sort((a, b) => b.total_score - a.total_score)
 }

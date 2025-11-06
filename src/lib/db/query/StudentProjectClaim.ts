@@ -4,12 +4,12 @@ import prisma from '@/lib/db'
 export interface Project {
   id: number;
   project_id: string;
-  project_name: string;
-  factory_address: string;
-  whitelist_address: string;
-  nft_address: string;
-  claim_address: string;
-  erc20_address: string;
+  project_name: string | null;
+  factory_address: string | null;
+  whitelist_address: string | null;
+  nft_address: string | null;
+  claim_address: string | null;
+  erc20_address: string | null;
   created_at: Date;
   updated_at: Date | null;
 }
@@ -17,12 +17,12 @@ export interface Project {
 export interface StudentProjectClaim {
   id: number;
   student_id: string;
-  student_name: string;
+  student_name: string | null;
   project_id: string;
-  project_name: string;
-  nft_address: string;
-  claim_address: string;
-  erc20_address: string;
+  project_name: string | null;
+  nft_address: string | null;
+  claim_address: string | null;
+  erc20_address: string | null;
   has_claimed: boolean;
   created_at: Date;
   updated_at: Date | null;
@@ -50,15 +50,15 @@ interface StudentProjectClaimWithRegistration {
   id: number;
   student_id: string;
   project_id: string;
-  project_name: string;
-  nft_address: string;
-  claim_address: string;
-  erc20_address: string;
+  project_name: string | null;
+  nft_address: string | null;
+  claim_address: string | null;
+  erc20_address: string | null;
   has_claimed: boolean;
   created_at: Date;
   updated_at: Date | null;
   registration: {
-    student_name: string;
+    student_name: string | null;
   };
 }
 
@@ -128,16 +128,20 @@ export async function getProjectsByStudentId(student_id: string) {
   })
 }
 
-export async function getLatestProject() {
-  return await prisma.project.findFirst({
+export async function getLatestProject(): Promise<Project | null> {
+  const project = await prisma.project.findFirst({
     orderBy: { created_at: 'desc' }
-  })
+  });
+  
+  return project as Project | null;
 }
 
 export async function getAllProjects(): Promise<Project[]> {
-  return await prisma.project.findMany({
+  const projects = await prisma.project.findMany({
     orderBy: { created_at: 'desc' }
-  })
+  });
+  
+  return projects as Project[];
 }
 
 export async function getAllStudentProjectClaims(): Promise<StudentProjectClaim[]> {
@@ -209,9 +213,11 @@ export async function deleteStudentProjectClaimById(id: number): Promise<DeleteR
 
 // 根据 project_id 获取项目
 export async function getProjectByProjectId(projectId: string): Promise<Project | null> {
-  return await prisma.project.findUnique({
+  const project = await prisma.project.findUnique({
     where: { project_id: projectId }
-  })
+  });
+  
+  return project as Project | null;
 }
 
 // 根据 project_id 删除项目

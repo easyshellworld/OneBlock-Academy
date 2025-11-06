@@ -20,13 +20,13 @@ export function AnnouncementViewer() {
       const res = await fetch('/api/student/course');
       const json = await res.json();
       if (!json.success) {
-        console.error('获取内容失败：', json.error);
+        console.error('获取内容失败:', json.error);
         return;
       }
       const allContents = json.data as CourseContent[];
       setContents(allContents);
     } catch (error) {
-      console.error('获取内容异常：', error);
+      console.error('获取内容异常:', error);
     }
   }
 
@@ -34,6 +34,27 @@ export function AnnouncementViewer() {
     if (filter === 'all') return true;
     return item.type === filter;
   });
+
+  // 辅助函数：将 is_pinned 转换为数字
+  const getPinnedValue = (isPinned: boolean | number | undefined): number => {
+    if (typeof isPinned === 'boolean') {
+      return isPinned ? 1 : 0;
+    }
+    return isPinned || 0;
+  };
+
+  // 辅助函数：格式化日期
+  const formatDate = (date: Date | string | undefined): string => {
+    if (!date) return '';
+    const dateObj = date instanceof Date ? date : new Date(date);
+    return dateObj.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
 
   return (
     <div className="space-y-8">
@@ -64,17 +85,19 @@ export function AnnouncementViewer() {
         <CardContent className="p-4 space-y-4">
           <ScrollArea className="h-[600px] space-y-4">
             {filteredContents
-              .sort((a, b) => ((b.is_pinned || 0) - (a.is_pinned || 0)))
+              .sort((a, b) => getPinnedValue(b.is_pinned) - getPinnedValue(a.is_pinned))
               .map((item) => (
                 <Card key={item.id}>
                   <CardContent className="p-4 space-y-2">
                     <div className="flex justify-between items-center">
                       <div>
                         <h4 className="font-medium">
-                          {item.is_pinned === 1 && '📌 '}
+                          {getPinnedValue(item.is_pinned) === 1 && '📌 '}
                           [{item.type === 'announcement' ? '公告' : '资源'}] {item.title}
                         </h4>
-                        <div className="text-sm text-gray-500">{item.created_at}</div>
+                        <div className="text-sm text-gray-500">
+                          {formatDate(item.created_at)}
+                        </div>
                       </div>
                       <button 
                         className="text-blue-500 hover:underline"

@@ -24,7 +24,7 @@ export interface Task {
   task5_choice_completed: boolean;
   task6_choice_completed: boolean;
   created_at?: Date;
-  updated_at?: Date;
+  updated_at?: Date | null; // 允许 null
 }
 
 export async function getAllTasks(): Promise<Task[]> {
@@ -39,7 +39,7 @@ export async function getTaskByStudentId(studentId: string): Promise<Task | null
   })
 }
 
-export async function addTask(task: Task): Promise<void> {
+export async function addTask(task: Omit<Task, 'id' | 'created_at' | 'updated_at'>): Promise<void> {
   await prisma.task.create({
     data: {
       ...task,

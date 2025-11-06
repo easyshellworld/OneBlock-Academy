@@ -70,7 +70,9 @@ export function RegistrationsTable({
     }
   };
 
-  const formatDate = (dateString?: string | null): string => {
+
+
+  const formatDate = (dateString?: string | Date | null): string => {
     if (!dateString) return "N/A"; // 处理 undefined/null/空字符串
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "N/A"; // 处理无效日期格式

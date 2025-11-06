@@ -119,7 +119,7 @@ export function AnnouncementManagement() {
       type: item.type,
       task_number: item.task_number,
       content_markdown: item.content_markdown,
-      is_pinned: item.is_pinned === 1,
+      is_pinned: item.is_pinned === true,
     });
     setEditingId(item.id ?? null);
     setShowForm(true);
@@ -195,41 +195,54 @@ export function AnnouncementManagement() {
         <CardContent className="p-4 space-y-4">
           <h3 className="text-lg font-semibold mb-4">内容列表</h3>
           <ScrollArea className="h-[600px] space-y-4">
-            {contents.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <h4 className="font-medium">
-                        [{item.type === 'announcement' ? '公告' : '资源'}] {item.title}
-                      </h4>
-                      <div className="text-sm text-gray-500">{item.created_at}</div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => setExpandedId(expandedId === item.id ? null : item.id ?? null)}>
-                        {expandedId === item.id ? '收起' : '预览'}
-                      </Button>
-                      <Button size="sm" onClick={() => handleEdit(item)}>
-                        编辑
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => handleDelete(item.id!)}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  </div>
+            {contents.map((item, idx) => {
+              const itemIdOrNull: number | null = item.id ?? null;
+              const isExpanded = expandedId === itemIdOrNull;
 
-                  {expandedId === item.id && (
-                    <div className="prose max-w-full mt-4">
-                      <MarkdownViewer markdown={item.content_markdown} />
+              return (
+                <Card key={item.id ?? `content-${idx}`}>
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h4 className="font-medium">
+                          [{item.type === 'announcement' ? '公告' : '资源'}] {item.title}
+                        </h4>
+                        <div className="text-sm text-gray-500">
+                          {item.created_at ? new Date(item.created_at).toLocaleString() : ''}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() =>
+                            setExpandedId(isExpanded ? null : itemIdOrNull)
+                          }
+                        >
+                          {isExpanded ? '收起' : '预览'}
+                        </Button>
+                        <Button size="sm" onClick={() => handleEdit(item)}>
+                          编辑
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => item.id != null && handleDelete(item.id)}
+                        >
+                          删除
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
+
+                    {isExpanded && (
+                      <div className="prose max-w-full mt-4">
+                        <MarkdownViewer markdown={item.content_markdown} />
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </ScrollArea>
         </CardContent>
       </Card>
