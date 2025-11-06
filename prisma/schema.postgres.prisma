@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+
+
+model Registration {
+  id                    Int      @id @default(autoincrement())
+  student_name          String
+  wechat_id             String
+  phone                 String
+  email                 String
+  gender                String
+  age_group             String
+  education             String
+  university            String
+  major                 String
+  city                  String
+  role                  String
+  languages             String
+  experience            String
+  source                String
+  has_web3_experience   Boolean
+  study_time            String
+  interests             String
+  platforms             String
+  willing_to_hackathon  Boolean
+  willing_to_lead       Boolean
+  wants_private_service Boolean
+  referrer              String
+  wallet_address        String
+  student_id            String   @unique
+  approved              Boolean? @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime?
+
+  tasks               Task[]
+  task_scores         TaskScore[]
+  student_notes       StudentNote[]
+  project_claims      StudentProjectClaim[]
+
+  @@map("registrations")
+}
+
+model Task {
+  id                      Int     @id @default(autoincrement())
+  student_id              String
+  student_name            String
+
+  task1_choice_score      Int @default(0)
+  task1_practice_score    Int @default(0)
+  task2_choice_score      Int @default(0)
+  task2_practice_score    Int @default(0)
+  task3_choice_score      Int @default(0)
+  task3_practice_score    Int @default(0)
+  task4_choice_score      Int @default(0)
+  task4_practice_score    Int @default(0)
+  task5_choice_score      Int @default(0)
+  task5_practice_score    Int @default(0)
+  task6_choice_score      Int @default(0)
+  task6_practice_score    Int @default(0)
+
+  task1_choice_completed Boolean @default(false)
+  task2_choice_completed Boolean @default(false)
+  task3_choice_completed Boolean @default(false)
+  task4_choice_completed Boolean @default(false)
+  task5_choice_completed Boolean @default(false)
+  task6_choice_completed Boolean @default(false)
+
+  created_at DateTime @default(now())
+  updated_at DateTime?
+
+  registration Registration @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+  @@map("tasks")
+  
+}
+
+model TaskScore {
+  id           Int      @id @default(autoincrement())
+  student_id   String
+  task_number  Int
+  score_type   String   // 'choice' or 'practice'
+  score        Int      @default(0)
+  completed    Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime?
+
+  registration Registration @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+
+  @@map("task_scores")
+}
+
+model ChoiceQuestion {
+  id              Int      @id @default(autoincrement())
+  task_number     Int
+  question_number Int
+  question_text   String
+  options         String   // JSON string
+  correct_option  String
+  score           Int
+  created_at      DateTime @default(now())
+  updated_at      DateTime?
+
+  @@map("choice_questions")
+}
+
+model CourseContent {
+  id               Int      @id @default(autoincrement())
+  title            String
+  type             String   // 'announcement' | 'resource'
+  task_number      Int?
+  content_markdown String
+  is_pinned        Boolean? @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime?
+
+  @@map("course_contents")
+}
+
+model StudentNote {
+  id               Int      @id @default(autoincrement())
+  student_id       String
+  student_name     String
+  title            String
+  content_markdown String
+  created_at       DateTime @default(now())
+  updated_at       DateTime?
+
+  registration Registration @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+
+  @@map("student_notes")
+}
+
+model Staff {
+  id             Int      @id @default(autoincrement())
+  name           String
+  wechat_id      String   @unique
+  phone          String?
+  role           String   // 'admin' | 'teacher' | 'assistant'
+  wallet_address String   @unique
+  approved       Boolean? @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime?
+
+  @@map("staff")
+}
+
+model Project {
+  id                Int      @id @default(autoincrement())
+  project_id        String   @unique
+  project_name      String?
+  factory_address   String?
+  whitelist_address String?
+  nft_address       String?
+  claim_address     String?
+  erc20_address     String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime?
+
+  claims StudentProjectClaim[]
+
+  @@map("projects")
+
+}
+
+model StudentProjectClaim {
+  id             Int      @id @default(autoincrement())
+  student_id     String
+  project_id     String
+  project_name   String
+  nft_address    String
+  claim_address  String
+  erc20_address  String
+  has_claimed    Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime?
+
+  registration Registration @relation(fields: [student_id], references: [student_id], onDelete: Cascade)
+  project      Project      @relation(fields: [project_id], references: [project_id], onDelete: Cascade)
+
+  @@unique([student_id, project_id])
+  @@map("student_project_claims")
+}
