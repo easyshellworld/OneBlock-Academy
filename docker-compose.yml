@@ -1,10 +1,8 @@
 version: '3.8'
 
 services:
-  # PostgreSQL 数据库
   postgres:
     image: postgres:16-alpine
-    container_name: academy-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -12,9 +10,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-academy}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    # 移除端口映射，不对外暴露数据库
-    # ports:
-    #   - "5431:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
@@ -23,39 +18,29 @@ services:
     networks:
       - app-network
 
-  # Next.js 应用
   app:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: academy-app
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      # 数据库连接 - 使用容器名称和内部端口
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@academy-db:5432/${POSTGRES_DB:-academy}
-
-      # NextAuth 配置
+      # 使用服务名 postgres 作为主机
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-academy}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-
-      # 项目配置
       NEXT_PUBLIC_ITEM_TITLE: ${NEXT_PUBLIC_ITEM_TITLE:-"Oneblock Academy"}
       INITIAL_STUDENT_ID: ${INITIAL_STUDENT_ID:-1799}
-
-      # Web3 / 区块链配置
       PRIVATE_KEY: ${PRIVATE_KEY}
       RPC_URL: ${RPC_URL}
       NEXT_PUBLIC_CLAIM_FACTORY: ${NEXT_PUBLIC_CLAIM_FACTORY}
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
       ADMIN_ADDRESS: ${ADMIN_ADDRESS}
-
-      # 其他环境变量
       NODE_ENV: production
     depends_on:
-      postgres:
-        condition: service_healthy
+      - postgres
+    # 可选：如果你想在容器启动前强制等待 postgres 可用，可以在 Dockerfile 或 entrypoint 中使用 wait-for-it.sh/wait-for
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
       interval: 30s
