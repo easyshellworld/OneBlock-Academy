@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:16-alpine
+    container_name: academy-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-academy}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Next.js 应用
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: academy-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # 数据库连接
+      DATABASE_URL: ${DATABASE_URL}
+
+      # NextAuth 配置
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+
+      # 项目配置
+      NEXT_PUBLIC_ITEM_TITLE: ${NEXT_PUBLIC_ITEM_TITLE:-"Oneblock Academy"}
+      INITIAL_STUDENT_ID: ${INITIAL_STUDENT_ID:-1799}
+
+      # Web3 / 区块链配置
+      PRIVATE_KEY: ${PRIVATE_KEY}
+      RPC_URL: ${RPC_URL}
+      NEXT_PUBLIC_CLAIM_FACTORY: ${NEXT_PUBLIC_CLAIM_FACTORY}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}
+      ADMIN_ADDRESS: ${ADMIN_ADDRESS}
+
+      # 其他环境变量
+      NODE_ENV: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+    driver: local
