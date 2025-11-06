@@ -27,8 +27,7 @@
     "@rainbow-me/rainbowkit": "^2.2.4",
     "@tanstack/react-query": "^5.66.11",
     "@uiw/react-md-editor": "^4.0.5",
-    "axios": "^1.8.1",
-    "better-sqlite3": "^11.9.1",
+    "axios": "^1.13.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "github-markdown-css": "^5.8.1",
@@ -57,7 +56,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/mocha": "^10.0.10",
     "@types/node": "^20",
     "@types/react": "^19",
