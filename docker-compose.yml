@@ -12,13 +12,16 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-academy}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    # 移除端口映射，不对外暴露数据库
+    # ports:
+    #   - "5431:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - app-network
 
   # Next.js 应用
   app:
@@ -28,10 +31,10 @@ services:
     container_name: academy-app
     restart: unless-stopped
     ports:
-      - "300001:3000"
+      - "3000:3000"
     environment:
-      # 数据库连接
-      DATABASE_URL: ${DATABASE_URL}
+      # 数据库连接 - 使用容器名称和内部端口
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@academy-db:5432/${POSTGRES_DB:-academy}
 
       # NextAuth 配置
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
@@ -59,7 +62,13 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
     driver: local
+
+networks:
+  app-network:
+    driver: bridge
