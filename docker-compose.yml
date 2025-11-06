@@ -27,7 +27,7 @@ services:
       - "3000:3000"
     environment:
       # 使用服务名 postgres 作为主机
-      
+      DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
       NEXT_PUBLIC_ITEM_TITLE: ${NEXT_PUBLIC_ITEM_TITLE:-"Oneblock Academy"}
