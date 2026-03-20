@@ -103,15 +103,16 @@ model TaskScore {
 }
 
 model ChoiceQuestion {
-  id              Int      @id @default(autoincrement())
-  task_number     Int
-  question_number Int
-  question_text   String
-  options         String   // JSON string
-  correct_option  String
-  score           Int
-  created_at      DateTime @default(now())
-  updated_at      DateTime?
+  id               Int      @id @default(autoincrement())
+  task_number      Int
+  question_number  Int
+  question_text    String
+  options          String   // JSON string
+  question_type    String   @default("single") // 'single' | ''multiple'
+  correct_options  String   // JSON array string
+  score            Int
+  created_at       DateTime @default(now())
+  updated_at       DateTime?
 
   @@map("choice_questions")
 }

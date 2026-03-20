@@ -12,9 +12,19 @@ import {
 import { getToken } from 'next-auth/jwt'
 
 // For returning raw scores (legacy GET endpoint)
-export async function GET() {
-  const rawScores =await getRawScores()
-  return NextResponse.json(rawScores)
+export async function GET(request: NextRequest) {
+  const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
+  if (!token) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (token.role === 'admin' || token.role === 'teacher') {
+    const rawScores = await getRawScores();
+    return NextResponse.json(rawScores);
+  }
+
+  const myScores = await getTaskScoresByStudent(token.id as string);
+  return NextResponse.json(myScores);
 }
 
 export async function POST(request: NextRequest) {

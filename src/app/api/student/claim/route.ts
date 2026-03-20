@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const result = insertStudentProjectClaim({
+      const result = await insertStudentProjectClaim({
         student_id,
         project_id,
         project_name,

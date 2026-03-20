@@ -78,10 +78,11 @@ export async function middleware(req: NextRequest) {
     }
   }
   
-  // If authenticated and authorized, add authorization header for API routes
+  // If authenticated and authorized, add custom headers for API routes
   if (pathname.startsWith('/api/')) {
     const requestHeaders = new Headers(req.headers);
-    requestHeaders.set('Authorization', `Bearer ${token.accessToken}`);
+    requestHeaders.set('x-user-id', token.id as string);
+    requestHeaders.set('x-user-role', token.role as string);
     return NextResponse.next({ headers: requestHeaders });
   }
   

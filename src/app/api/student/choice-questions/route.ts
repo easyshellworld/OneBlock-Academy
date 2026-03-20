@@ -10,6 +10,7 @@ import {
   createTaskScore,
   getTaskScoresByStudent
 } from '@/lib/db/query/taskScores';
+import { getToken } from 'next-auth/jwt';
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,8 +46,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
     const body = await request.json();
     const { student_id, task_number, answers } = body;
+
+    if (!token || token.id !== student_id) {
+      return NextResponse.json(
+        { success: false, error: 'You can only submit answers for your own account' },
+        { status: 403 }
+      );
+    }
 
     // Validate required fields
     if (!student_id || !task_number || !answers || typeof answers !== 'object') {
@@ -87,10 +96,17 @@ export async function POST(request: NextRequest) {
     const incorrectQuestions = taskQuestions
       .filter(question => {
         const questionId = question.id;
-        return (
-          questionId !== undefined &&
-          answers[questionId] !== undefined &&
-          question.correct_option !== answers[questionId]
+        if (questionId === undefined || answers[questionId] === undefined) {
+          return false;
+        }
+        
+        const studentAnswer = answers[questionId];
+        const studentSet = new Set(Array.isArray(studentAnswer) ? studentAnswer : [studentAnswer]);
+        const correctSet = new Set(question.correct_options);
+        
+        return !(
+          studentSet.size === correctSet.size &&
+          [...studentSet].every((a) => correctSet.has(a))
         );
       })
       .map(q => {
@@ -98,7 +114,7 @@ export async function POST(request: NextRequest) {
         return {
           id: questionId,
           question_number: q.question_number,
-          correct_option: q.correct_option,
+          correct_options: q.correct_options,
           student_answer: answers[questionId]
         };
       });

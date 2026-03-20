@@ -34,42 +34,29 @@ export default function Home() {
           // Update state to show signing in progress
           setAuthState('signing');
           
-          const message = "login Oneblock";
+          const nonceRes = await fetch("/api/auth/nonce");
+          const { nonce } = await nonceRes.json();
+          
+          const message = `Login to Oneblock\nNonce: ${nonce}\nTimestamp: ${Date.now()}`;
           const signature = await signMessageAsync({ message });
           
           // Update state to show authentication in progress
           setAuthState('authenticating');
 
-          const response = await fetch("/api/auth/signin", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ address, signature }),
+          // Directly use NextAuth signIn (the signin API has been removed)
+          const result = await signIn("credentials", {
+            address,
+            signature,
+            nonce,
+            redirect: false,
           });
 
-          const data = await response.json();
-
-          if (data.token) {
-            // Successful authentication
-            await signIn("credentials", {
-              address,
-              signature,
-              redirect: false,
-            });
+          if (result?.ok) {
             setAuthState('registered');
-          } else if (data.status === "pending") {
-            // User registration is pending
-            setAuthState('pending');
-            router.push("/register/pending");
-          } else if (data.status === "not_found") {
-            // User needs to complete registration
-            setAuthState('pending');
-            router.push("/register");
           } else {
-            // Unexpected response
+            // Login failed, likely user not found or pending
             setAuthState('error');
-            setErrorMessage("Unknown authentication status");
+            setErrorMessage("Login failed. Please check if you are registered.");
           }
         } catch (error) {
           // Handle authentication errors

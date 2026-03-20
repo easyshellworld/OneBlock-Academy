@@ -1,6 +1,7 @@
 // src/app/api/register/route.ts
 import { NextResponse } from 'next/server';
 import { addRegistration, Registration } from '@/lib/db/query/registrations';
+import prisma from '@/lib/db';
 
 export async function POST(request: Request) {
   try {
@@ -34,6 +35,18 @@ export async function POST(request: Request) {
     // 校验必填字段
     if (!address || !name || !email) {
       return NextResponse.json({ message: 'Missing required fields' }, { status: 400 });
+    }
+
+    // 检查钱包地址是否已注册
+    const existingRegistration = await prisma.registration.findFirst({
+      where: { wallet_address: address }
+    });
+
+    if (existingRegistration) {
+      return NextResponse.json(
+        { message: 'This wallet address is already registered' },
+        { status: 409 }
+      );
     }
 
     // 构造注册对象

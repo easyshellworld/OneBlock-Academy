@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { checkWalletAuth } from "@/lib/db/query/authdb";
 import { verifyMessage } from "viem";
+import { getStoredNonce } from "../nonce/route";
 
 
 const handler = NextAuth({
@@ -12,10 +13,22 @@ const handler = NextAuth({
       credentials: {
         address: { label: "Wallet Address", type: "text", placeholder: "0x..." },
         signature: { label: "Signature", type: "text" },
+        nonce: { label: "Nonce", type: "text" },
       },
       async authorize(credentials) {
         try {
-          if (!credentials?.address || !credentials?.signature) {
+          if (!credentials?.address || !credentials?.signature || !credentials?.nonce) {
+            return null;
+          }
+
+          const storedNonce = getStoredNonce(credentials.nonce as string);
+          if (!storedNonce) {
+            console.error("Invalid or expired nonce");
+            return null;
+          }
+
+          if (Date.now() > storedNonce.expiresAt) {
+            console.error("Nonce expired");
             return null;
           }
 
@@ -25,15 +38,15 @@ const handler = NextAuth({
             return null;
           }
 
-     
+   
 
           const user = registertext;
           if (!user) {
             return null;
           }
 
-          const message = "login Oneblock";
-          const isValidSignature = verifyMessage({
+          const message = `Login to Oneblock\nNonce: ${credentials.nonce}\nTimestamp: ${storedNonce.issuedAt}`;
+          const isValidSignature = await verifyMessage({
             address: credentials.address as `0x${string}`,
             message,
             signature: credentials.signature as `0x${string}`,

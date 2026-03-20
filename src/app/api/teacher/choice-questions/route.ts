@@ -25,9 +25,9 @@ export async function POST(request: NextRequest) {
         // 添加选择题
         if (Array.isArray(data.questions)) {
           // 批量添加一组题目
-          data.questions.forEach(async (question: ChoiceQuestion) => {
-            await addChoiceQuestion(question);
-          });
+          await Promise.all(
+            data.questions.map((question: ChoiceQuestion) => addChoiceQuestion(question))
+          );
           return NextResponse.json({ 
             success: true, 
             message: `Successfully added ${data.questions.length} questions` 
